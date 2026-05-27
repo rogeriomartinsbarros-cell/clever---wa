@@ -15,8 +15,23 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
-import { Plus, Trash2, Edit2, Loader2 } from 'lucide-react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Plus, Trash2, Edit2, Loader2, BookOpen, Clock } from 'lucide-react'
 import { AIAgent } from '@/lib/types'
+
+const defaultBusinessHours = {
+  enabled: false,
+  timezone: 'America/Sao_Paulo',
+  schedule: {
+    monday: { start: '09:00', end: '18:00', active: true },
+    tuesday: { start: '09:00', end: '18:00', active: true },
+    wednesday: { start: '09:00', end: '18:00', active: true },
+    thursday: { start: '09:00', end: '18:00', active: true },
+    friday: { start: '09:00', end: '18:00', active: true },
+    saturday: { start: '09:00', end: '13:00', active: false },
+    sunday: { start: '09:00', end: '13:00', active: false },
+  },
+}
 
 export default function Agents() {
   const { agents, loading, createAgent, updateAgent, deleteAgent, toggleAgentStatus } = useAgents()
@@ -32,6 +47,9 @@ export default function Agents() {
     system_prompt: '',
     gemini_api_key: '',
     is_active: true,
+    knowledge_base: '',
+    emergency_contacts: '',
+    business_hours: defaultBusinessHours,
   })
 
   const handleOpenDialog = (agent?: AIAgent) => {
@@ -43,6 +61,9 @@ export default function Agents() {
         system_prompt: agent.system_prompt,
         gemini_api_key: agent.gemini_api_key,
         is_active: agent.is_active,
+        knowledge_base: agent.knowledge_base || '',
+        emergency_contacts: agent.emergency_contacts || '',
+        business_hours: agent.business_hours || defaultBusinessHours,
       })
     } else {
       setEditingAgent(null)
@@ -52,6 +73,9 @@ export default function Agents() {
         system_prompt: t('default_system_prompt'),
         gemini_api_key: '',
         is_active: true,
+        knowledge_base: '',
+        emergency_contacts: '',
+        business_hours: defaultBusinessHours,
       })
     }
     setIsDialogOpen(true)
@@ -70,6 +94,22 @@ export default function Agents() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const handleScheduleChange = (day: string, field: string, value: any) => {
+    setFormData((prev) => ({
+      ...prev,
+      business_hours: {
+        ...prev.business_hours,
+        schedule: {
+          ...prev.business_hours.schedule,
+          [day]: {
+            ...(prev.business_hours.schedule as any)[day],
+            [field]: value,
+          },
+        },
+      },
+    }))
   }
 
   return (
@@ -133,10 +173,17 @@ export default function Agents() {
                 <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
                   {agent.description || t('no_description')}
                 </p>
-                <div className="mt-4 p-3 bg-muted/50 rounded-xl border border-border/50">
-                  <p className="text-xs font-mono text-muted-foreground line-clamp-2 leading-relaxed opacity-70">
-                    {agent.system_prompt}
-                  </p>
+                <div className="mt-4 flex gap-2">
+                  {agent.knowledge_base && (
+                    <div className="flex items-center gap-1 text-xs text-zinc-500 bg-zinc-100 px-2 py-1 rounded-full">
+                      <BookOpen className="w-3 h-3" /> KB Active
+                    </div>
+                  )}
+                  {agent.business_hours?.enabled && (
+                    <div className="flex items-center gap-1 text-xs text-zinc-500 bg-zinc-100 px-2 py-1 rounded-full">
+                      <Clock className="w-3 h-3" /> Schedule
+                    </div>
+                  )}
                 </div>
               </CardContent>
               <div className="border-t border-border/40 bg-muted/10 p-4 flex justify-end gap-2 shrink-0">
@@ -164,7 +211,7 @@ export default function Agents() {
       )}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[600px] rounded-[2rem] p-0 overflow-hidden border-border/60">
+        <DialogContent className="sm:max-w-[700px] rounded-[2rem] p-0 overflow-hidden border-border/60">
           <form onSubmit={handleSubmit} className="flex flex-col h-full max-h-[90vh]">
             <DialogHeader className="p-6 md:p-8 pb-4 border-b border-border/40 bg-muted/20">
               <DialogTitle className="text-2xl">
@@ -172,75 +219,206 @@ export default function Agents() {
               </DialogTitle>
               <DialogDescription>{t('agent_dialog_desc')}</DialogDescription>
             </DialogHeader>
-            <div className="p-6 md:p-8 space-y-6 overflow-y-auto">
-              <div className="space-y-3">
-                <Label htmlFor="name" className="font-semibold">
-                  {t('agent_name')}
-                </Label>
-                <Input
-                  id="name"
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder={t('agent_name_placeholder')}
-                  className="rounded-xl h-12"
-                />
-              </div>
-              <div className="space-y-3">
-                <Label htmlFor="description" className="font-semibold">
-                  {t('description')}
-                </Label>
-                <Input
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder={t('agent_desc_placeholder')}
-                  className="rounded-xl h-12"
-                />
-              </div>
-              <div className="space-y-3">
-                <Label htmlFor="api_key" className="font-semibold">
-                  {t('gemini_api_key')}
-                </Label>
-                <Input
-                  id="api_key"
-                  type="password"
-                  required
-                  value={formData.gemini_api_key}
-                  onChange={(e) => setFormData({ ...formData, gemini_api_key: e.target.value })}
-                  placeholder="AIzaSy..."
-                  className="rounded-xl h-12 font-mono text-sm"
-                />
-                <p className="text-[11px] text-muted-foreground font-medium">{t('api_key_help')}</p>
-              </div>
-              <div className="space-y-3">
-                <Label htmlFor="prompt" className="font-semibold">
-                  {t('system_prompt')}
-                </Label>
-                <Textarea
-                  id="prompt"
-                  required
-                  value={formData.system_prompt}
-                  onChange={(e) => setFormData({ ...formData, system_prompt: e.target.value })}
-                  placeholder={t('system_prompt_placeholder')}
-                  className="rounded-xl min-h-[160px] resize-none font-mono text-sm leading-relaxed p-4"
-                />
-                <p className="text-[11px] text-muted-foreground font-medium">
-                  {t('system_prompt_help')}
-                </p>
-              </div>
-              <div className="flex items-center justify-between p-4 bg-muted/40 rounded-2xl border border-border/60">
-                <div className="space-y-0.5">
-                  <Label className="font-semibold">{t('agent_status')}</Label>
-                  <p className="text-xs text-muted-foreground">{t('agent_status_help')}</p>
+            <div className="p-0 overflow-y-auto bg-background">
+              <Tabs defaultValue="general" className="w-full">
+                <div className="px-6 md:px-8 pt-4 pb-2 border-b border-border/40 bg-muted/5 sticky top-0 z-10 backdrop-blur-md">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="general">{t('general')}</TabsTrigger>
+                    <TabsTrigger value="knowledge">{t('knowledge_base')}</TabsTrigger>
+                    <TabsTrigger value="schedule">{t('schedule')}</TabsTrigger>
+                  </TabsList>
                 </div>
-                <Switch
-                  checked={formData.is_active}
-                  onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-                />
-              </div>
+
+                <TabsContent
+                  value="general"
+                  className="p-6 md:p-8 space-y-6 m-0 border-none outline-none"
+                >
+                  <div className="space-y-3">
+                    <Label htmlFor="name" className="font-semibold">
+                      {t('agent_name')}
+                    </Label>
+                    <Input
+                      id="name"
+                      required
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder={t('agent_name_placeholder')}
+                      className="rounded-xl h-12"
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <Label htmlFor="description" className="font-semibold">
+                      {t('description')}
+                    </Label>
+                    <Input
+                      id="description"
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      placeholder={t('agent_desc_placeholder')}
+                      className="rounded-xl h-12"
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <Label htmlFor="api_key" className="font-semibold">
+                      {t('gemini_api_key')}
+                    </Label>
+                    <Input
+                      id="api_key"
+                      type="password"
+                      required
+                      value={formData.gemini_api_key}
+                      onChange={(e) => setFormData({ ...formData, gemini_api_key: e.target.value })}
+                      placeholder="AIzaSy..."
+                      className="rounded-xl h-12 font-mono text-sm"
+                    />
+                    <p className="text-[11px] text-muted-foreground font-medium">
+                      {t('api_key_help')}
+                    </p>
+                  </div>
+                  <div className="space-y-3">
+                    <Label htmlFor="prompt" className="font-semibold">
+                      {t('system_prompt')}
+                    </Label>
+                    <Textarea
+                      id="prompt"
+                      required
+                      value={formData.system_prompt}
+                      onChange={(e) => setFormData({ ...formData, system_prompt: e.target.value })}
+                      placeholder={t('system_prompt_placeholder')}
+                      className="rounded-xl min-h-[160px] resize-none font-mono text-sm leading-relaxed p-4"
+                    />
+                    <p className="text-[11px] text-muted-foreground font-medium">
+                      {t('system_prompt_help')}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-muted/40 rounded-2xl border border-border/60">
+                    <div className="space-y-0.5">
+                      <Label className="font-semibold">{t('agent_status')}</Label>
+                      <p className="text-xs text-muted-foreground">{t('agent_status_help')}</p>
+                    </div>
+                    <Switch
+                      checked={formData.is_active}
+                      onCheckedChange={(checked) =>
+                        setFormData({ ...formData, is_active: checked })
+                      }
+                    />
+                  </div>
+                </TabsContent>
+
+                <TabsContent
+                  value="knowledge"
+                  className="p-6 md:p-8 space-y-6 m-0 border-none outline-none"
+                >
+                  <div className="space-y-3">
+                    <Label htmlFor="knowledge_base" className="font-semibold">
+                      {t('knowledge_base')}
+                    </Label>
+                    <Textarea
+                      id="knowledge_base"
+                      value={formData.knowledge_base}
+                      onChange={(e) => setFormData({ ...formData, knowledge_base: e.target.value })}
+                      placeholder="E.g. Price lists, FAQs, Company info..."
+                      className="rounded-xl min-h-[220px] resize-none font-mono text-sm leading-relaxed p-4"
+                    />
+                    <p className="text-[11px] text-muted-foreground font-medium">
+                      {t('knowledge_base_help')}
+                    </p>
+                  </div>
+                  <div className="space-y-3">
+                    <Label htmlFor="emergency_contacts" className="font-semibold">
+                      {t('emergency_contacts')}
+                    </Label>
+                    <Textarea
+                      id="emergency_contacts"
+                      value={formData.emergency_contacts}
+                      onChange={(e) =>
+                        setFormData({ ...formData, emergency_contacts: e.target.value })
+                      }
+                      placeholder="E.g. Manager: +5511999999999"
+                      className="rounded-xl min-h-[80px] resize-none font-mono text-sm leading-relaxed p-4"
+                    />
+                    <p className="text-[11px] text-muted-foreground font-medium">
+                      {t('emergency_contacts_help')}
+                    </p>
+                  </div>
+                </TabsContent>
+
+                <TabsContent
+                  value="schedule"
+                  className="p-6 md:p-8 space-y-6 m-0 border-none outline-none"
+                >
+                  <div className="flex items-center justify-between p-4 bg-muted/40 rounded-2xl border border-border/60 mb-6">
+                    <div className="space-y-0.5">
+                      <Label className="font-semibold">{t('enable_business_hours')}</Label>
+                      <p className="text-xs text-muted-foreground">
+                        If disabled, the AI responds 24/7.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={formData.business_hours.enabled}
+                      onCheckedChange={(checked) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          business_hours: { ...prev.business_hours, enabled: checked },
+                        }))
+                      }
+                    />
+                  </div>
+
+                  {formData.business_hours.enabled && (
+                    <div className="space-y-4">
+                      {[
+                        'monday',
+                        'tuesday',
+                        'wednesday',
+                        'thursday',
+                        'friday',
+                        'saturday',
+                        'sunday',
+                      ].map((day) => {
+                        const config = (formData.business_hours.schedule as any)[day]
+                        return (
+                          <div
+                            key={day}
+                            className="flex items-center justify-between gap-4 p-3 bg-card border border-border/40 rounded-xl"
+                          >
+                            <div className="flex items-center gap-3 w-32">
+                              <Switch
+                                checked={config.active}
+                                onCheckedChange={(checked) =>
+                                  handleScheduleChange(day, 'active', checked)
+                                }
+                              />
+                              <Label className="capitalize font-medium text-sm">
+                                {day.slice(0, 3)}
+                              </Label>
+                            </div>
+                            <div className="flex items-center gap-2 flex-1">
+                              <Input
+                                type="time"
+                                disabled={!config.active}
+                                value={config.start}
+                                onChange={(e) => handleScheduleChange(day, 'start', e.target.value)}
+                                className="h-9"
+                              />
+                              <span className="text-muted-foreground text-sm">to</span>
+                              <Input
+                                type="time"
+                                disabled={!config.active}
+                                value={config.end}
+                                onChange={(e) => handleScheduleChange(day, 'end', e.target.value)}
+                                className="h-9"
+                              />
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
             </div>
-            <DialogFooter className="p-6 md:p-8 pt-4 border-t border-border/40 bg-muted/20">
+            <DialogFooter className="p-6 md:p-8 pt-4 border-t border-border/40 bg-muted/20 z-20 relative">
               <Button
                 type="button"
                 variant="ghost"

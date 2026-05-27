@@ -142,6 +142,21 @@ export function ConnectionCard() {
     }
   }
 
+  const handleWipeData = async () => {
+    if (!integration?.user_id) return
+    setLoading(true)
+    try {
+      const { error } = await supabase.rpc('wipe_whatsapp_data', { p_user_id: integration.user_id })
+      if (error) throw error
+      toast.success('Data wiped successfully')
+    } catch (err: any) {
+      console.error('Wipe data error:', err)
+      toast.error(err.message || 'Failed to wipe data')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleRetry = () => {
     setError(null)
     qrAttempted.current = false
@@ -322,15 +337,47 @@ export function ConnectionCard() {
                     )}
                   </div>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleReset}
-                  disabled={loading}
-                  className="shrink-0 bg-white hover:bg-zinc-100 border-zinc-200 text-zinc-600 rounded-full"
-                >
-                  <PowerOff className="mr-2 h-3 w-3" /> Disconnect
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleReset}
+                    disabled={loading}
+                    className="shrink-0 bg-white hover:bg-zinc-100 border-zinc-200 text-zinc-600 rounded-full"
+                  >
+                    <PowerOff className="mr-2 h-3 w-3" /> Disconnect
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={loading}
+                        className="shrink-0 bg-red-50 hover:bg-red-100 border-red-200 text-red-600 hover:text-red-700 rounded-full"
+                      >
+                        <Trash2 className="mr-2 h-3 w-3" /> Wipe Data
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete ALL WhatsApp contacts and messages from your
+                          CRM database. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleWipeData}
+                          className="bg-red-600 hover:bg-red-700 text-white"
+                        >
+                          Continue
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               </div>
             )}
           </>

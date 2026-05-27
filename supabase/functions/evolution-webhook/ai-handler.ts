@@ -26,7 +26,6 @@ export async function processAiResponse(
       return
     }
 
-    // REQUIREMENT: AI Agent must be explicitly assigned to the contact. Disabled by default.
     if (!contact.ai_agent_id) {
       console.log(
         `[AI Handler] Exiting: AI agent is disabled by default for contact ${contactId}. No ai_agent_id assigned.`,
@@ -34,9 +33,6 @@ export async function processAiResponse(
       return
     }
 
-    console.log(
-      `[AI Handler] Contact has agent assigned: ${contact.ai_agent_id}. Checking if active...`,
-    )
     const { data: agent, error: agentError } = await supabase
       .from('ai_agents')
       .select('*')
@@ -50,10 +46,6 @@ export async function processAiResponse(
       )
       return
     }
-
-    console.log(
-      `[AI Handler] Agent selected: ${agent.id} (Name: "${agent.name}", is_active: ${agent.is_active})`,
-    )
 
     const apiKey = agent.gemini_api_key || Deno.env.get('GEMINI_API_KEY')
     if (!apiKey) {
@@ -71,13 +63,9 @@ export async function processAiResponse(
       .limit(12)
 
     if (!messages || messages.length === 0) {
-      console.log(
-        `[AI Handler] Exiting: No messages found for contact ${contactId} (remote_jid: ${contact.remote_jid}).`,
-      )
+      console.log(`[AI Handler] Exiting: No messages found for contact ${contactId}.`)
       return
     }
-
-    console.log(`[AI Handler] Retrieved ${messages.length} messages for context.`)
 
     const history = messages
       .reverse()
@@ -87,12 +75,63 @@ export async function processAiResponse(
     let prompt = `
 System Instructions:
 ${agent.system_prompt}
+
+IMPORTANT TONE INSTRUCTIONS:
+Be highly humanized, empathetic, welcoming, and focused on solving the user's problem in a conversational way. Do not sound robotic.
 `
 
+    if (agent.knowledge_base) {
+      prompt += `\n\nKNOWLEDGE BASE / BUSINESS INFO (Use this to answer queries accurately):\n${agent.knowledge_base}`
+    }
+
+    if (agent.emergency_contacts) {
+      prompt += `\n\nEMERGENCY CONTACTS (Provide these to the user ONLY if they urgently need human assistance or escalation):\n${agent.emergency_contacts}`
+    }
+
+    if (agent.business_hours?.enabled && agent.business_hours.schedule) {
+      const tz = agent.business_hours.timezone || 'America/Sao_Paulo'
+      const now = new Date()
+
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        weekday: 'long',
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: false,
+      })
+      const timeParts = formatter.formatToParts(now)
+      const weekday = timeParts.find((p) => p.type === 'weekday')?.value.toLowerCase()
+      const hour = parseInt(timeParts.find((p) => p.type === 'hour')?.value || '0', 10)
+      const minute = parseInt(timeParts.find((p) => p.type === 'minute')?.value || '0', 10)
+
+      let isOutside = false
+      if (weekday && agent.business_hours.schedule[weekday]) {
+        const dayConfig = agent.business_hours.schedule[weekday]
+        if (!dayConfig.active) {
+          isOutside = true
+        } else {
+          const [startH, startM] = dayConfig.start.split(':').map(Number)
+          const [endH, endM] = dayConfig.end.split(':').map(Number)
+          const currentMins = hour * 60 + minute
+          const startMins = startH * 60 + startM
+          const endMins = endH * 60 + endM
+          if (currentMins < startMins || currentMins > endMins) {
+            isOutside = true
+          }
+        }
+      }
+
+      if (isOutside) {
+        prompt += `\n\nATTENTION: It is currently OUTSIDE of our business hours. The user's time is ${hour}:${minute.toString().padStart(2, '0')} on ${weekday}. Kindly inform the user that the team is away and we will reply as soon as we return during business hours. Be polite and humanized.`
+      } else {
+        prompt += `\n\nATTENTION: It is currently WITHIN business hours. Answer normally.`
+      }
+    }
+
     if (contact.is_returning_client) {
-      prompt += `\n\nNote: This is a Returning Client. Please adopt a Welcoming/Concierge tone focused on nurturing the relationship and directing them to a specialist if needed.`
+      prompt += `\n\nNote: This is a Returning Client. Adopt a Welcoming tone.`
     } else {
-      prompt += `\n\nNote: This is a New Lead. Follow the standard First Contact/Qualification script to understand their needs.`
+      prompt += `\n\nNote: This is a New Lead.`
     }
 
     if (contact.ai_analysis_summary) {
@@ -100,15 +139,14 @@ ${agent.system_prompt}
     }
 
     prompt += `\n\nYou are acting as "Me" in the following conversation.
-Read the conversation history carefully.
 Respond ONLY with the exact text of your next reply. Do not use quotes, explanations, or the prefix "Me:".
 
 CONVERSATION HISTORY:
 ${history}
 `
 
-    const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`
-    console.log(`[AI Handler] Calling Gemini API at v1/models/gemini-2.5-flash...`)
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`
+    console.log(`[AI Handler] Calling Gemini API at gemini-1.5-flash...`)
 
     const aiRes = await fetch(apiUrl, {
       method: 'POST',
@@ -124,10 +162,7 @@ ${history}
 
     if (!aiRes.ok) {
       const errText = await aiRes.text()
-      console.error(
-        `[AI Handler] Exiting: Gemini API error for contact ${contactId} (remote_jid: ${contact.remote_jid}): Status ${aiRes.status} - Details:`,
-        errText,
-      )
+      console.error(`[AI Handler] Exiting: Gemini API error: Status ${aiRes.status}`, errText)
       return
     }
 
@@ -135,10 +170,7 @@ ${history}
     const responseText = aiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
 
     if (!responseText) {
-      console.error(
-        `[AI Handler] Exiting: Empty response from Gemini API for contact ${contactId}. Raw response:`,
-        JSON.stringify(aiData),
-      )
+      console.error(`[AI Handler] Exiting: Empty response from Gemini.`)
       return
     }
 
@@ -151,9 +183,7 @@ ${history}
       .single()
 
     if (!integration || !integration.instance_name) {
-      console.error(
-        `[AI Handler] Exiting: Missing integration details or instance_name for user ${userId}.`,
-      )
+      console.error(`[AI Handler] Exiting: Missing integration details.`)
       return
     }
 
@@ -163,10 +193,6 @@ ${history}
       ''
     ).replace(/\/$/, '')
     const evoKey = integration.evolution_api_key || Deno.env.get('EVOLUTION_API_KEY')
-
-    console.log(
-      `[AI Handler] Attempting to send message to Evolution API. Phone: ${contact.remote_jid}`,
-    )
 
     const sendRes = await fetch(`${evoUrl}/message/sendText/${integration.instance_name}`, {
       method: 'POST',
@@ -183,7 +209,7 @@ ${history}
     if (!sendRes.ok) {
       const errText = await sendRes.text()
       console.error(
-        `[AI Handler] Exiting: Failed to send message via Evolution API. HTTP Response: ${sendRes.status} Error:`,
+        `[AI Handler] Exiting: Failed to send via Evolution API. HTTP ${sendRes.status}`,
         errText,
       )
       return
@@ -214,7 +240,7 @@ ${history}
       })
       .eq('id', contactId)
 
-    console.log(`[AI Handler] Successfully auto-responded to contact ${contactId} and saved to DB.`)
+    console.log(`[AI Handler] Successfully auto-responded to contact ${contactId}`)
   } catch (error) {
     console.error('[AI Handler] Unhandled exception in processAiResponse:', error)
   }

@@ -18,6 +18,9 @@ export interface AIAgent {
   system_prompt: string
   gemini_api_key: string
   is_active: boolean
+  business_hours?: any
+  emergency_contacts?: string | null
+  knowledge_base?: string | null
   created_at: string
   updated_at: string
 }

@@ -42,6 +42,9 @@ export const useAgents = () => {
         system_prompt: agent.system_prompt!,
         gemini_api_key: agent.gemini_api_key!,
         is_active: agent.is_active,
+        business_hours: agent.business_hours,
+        emergency_contacts: agent.emergency_contacts,
+        knowledge_base: agent.knowledge_base,
       })
       .select()
       .single()
@@ -67,6 +70,9 @@ export const useAgents = () => {
         system_prompt: agent.system_prompt,
         gemini_api_key: agent.gemini_api_key,
         is_active: agent.is_active,
+        business_hours: agent.business_hours,
+        emergency_contacts: agent.emergency_contacts,
+        knowledge_base: agent.knowledge_base,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
