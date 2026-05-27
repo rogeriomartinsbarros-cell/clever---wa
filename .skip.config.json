@@ -30,5 +30,14 @@
     "tests/**/*",
     "vite-plugin-react-uid.js",
     "README.md"
-  ]
+  ],
+  "migrations": {
+    "applied": [
+      "0001-pnpm-workspace-allow-builds",
+      "0002-package-json-pnpm-field"
+    ]
+  },
+  "deployment": {
+    "lastDevBuildRef": "89be9fa"
+  }
 }

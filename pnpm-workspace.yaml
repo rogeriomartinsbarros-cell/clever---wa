@@ -1,4 +1,4 @@
 injectWorkspacePackages: false
 allowBuilds:
-  '@swc/core': true
+  "@swc/core": true
   esbuild: true
