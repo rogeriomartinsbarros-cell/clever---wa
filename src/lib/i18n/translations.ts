@@ -99,6 +99,7 @@ export const translations = {
     type_message: 'Type a message...',
     no_messages_logged: 'No messages logged yet. Send one to start syncing.',
     message_queued: 'Message queued for sending',
+    number_not_on_whatsapp: 'The provided number does not have an active WhatsApp account.',
 
     link_whatsapp: 'Link WhatsApp',
     setting_up_crm: 'Setting up CRM',
@@ -255,6 +256,7 @@ export const translations = {
     type_message: 'Digite uma mensagem...',
     no_messages_logged: 'Nenhuma mensagem registrada ainda. Envie uma para começar a sincronizar.',
     message_queued: 'Mensagem na fila para envio',
+    number_not_on_whatsapp: 'O número informado não possui uma conta de WhatsApp ativa.',
 
     link_whatsapp: 'Vincular WhatsApp',
     setting_up_crm: 'Configurando o CRM',

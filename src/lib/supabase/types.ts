@@ -520,11 +520,13 @@ export const Constants = {
 //   Policy "Users can manage their own integrations" (ALL, PERMISSIVE) roles={public}
 //     USING: (auth.uid() = user_id)
 // Table: whatsapp_contacts
-//   Policy "Users can manage their own contacts" (ALL, PERMISSIVE) roles={public}
+//   Policy "Users can manage their own contacts" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: (auth.uid() = user_id)
+//     WITH CHECK: (auth.uid() = user_id)
 // Table: whatsapp_messages
-//   Policy "Users can manage their own messages" (ALL, PERMISSIVE) roles={public}
+//   Policy "Users can manage their own messages" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: (auth.uid() = user_id)
+//     WITH CHECK: (auth.uid() = user_id)
 
 // --- DATABASE FUNCTIONS ---
 // FUNCTION merge_whatsapp_contacts(uuid, uuid, uuid[])

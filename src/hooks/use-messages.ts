@@ -1,12 +1,16 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuth } from './use-auth'
+import { useLanguage } from './use-language'
 import { WhatsAppMessage } from '@/lib/types'
+import { toast } from 'sonner'
 
 export const useMessages = (contactId: string | undefined) => {
   const { user } = useAuth()
+  const { t } = useLanguage()
   const [messages, setMessages] = useState<WhatsAppMessage[]>([])
   const [loading, setLoading] = useState(true)
+  const [sending, setSending] = useState(false)
 
   const fetchMessages = useCallback(async () => {
     if (!user || !contactId) return
