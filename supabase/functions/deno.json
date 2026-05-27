@@ -4,7 +4,7 @@
     "ai-pipeline-monitor": 1,
     "evolution-create-instance": 1,
     "evolution-disconnect": 1,
-    "evolution-get-qr": 1,
+    "evolution-get-qr": 2,
     "evolution-send-message": 1,
     "evolution-sync-contacts": 1,
     "evolution-sync-messages": 1,
