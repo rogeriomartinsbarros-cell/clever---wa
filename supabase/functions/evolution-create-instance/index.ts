@@ -16,7 +16,12 @@ Deno.serve(async (req: Request) => {
     const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY') || ''
 
     if (!evolutionApiUrl || !evolutionApiKey) {
-      throw new Error('Evolution API is not globally configured.')
+      return new Response(
+        JSON.stringify({
+          error: 'Evolution API is not configured. Please set the API URL and API Key in settings.',
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey)
@@ -27,7 +32,12 @@ Deno.serve(async (req: Request) => {
       .eq('id', integrationId)
       .single()
     if (!integ) {
-      throw new Error('Integration not found')
+      return new Response(
+        JSON.stringify({
+          error: 'Integration record not found. Please refresh the page to initialize it.',
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
     }
 
     const instanceName = integ.user_id
@@ -108,7 +118,7 @@ Deno.serve(async (req: Request) => {
       return new Response(
         JSON.stringify({ error: `Evolution Create failed (${response.status}): ${text}` }),
         {
-          status: 400,
+          status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         },
       )
@@ -149,7 +159,7 @@ Deno.serve(async (req: Request) => {
     })
   } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }

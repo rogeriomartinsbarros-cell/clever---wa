@@ -98,28 +98,48 @@ export function ConnectionCard() {
   const handleSimulateConnection = async () => {
     if (!integration?.id) return
     setLoading(true)
-    await supabase
-      .from('user_integrations')
-      .update({ status: 'CONNECTED' })
-      .eq('id', integration.id)
-    setIntegration({ ...integration, status: 'CONNECTED' })
-    setQrCode(null)
-    setLoading(false)
-    toast.success('Simulation: Connected to WhatsApp!')
+    try {
+      await supabase
+        .from('user_integrations')
+        .update({ status: 'CONNECTED' })
+        .eq('id', integration.id)
+      setIntegration({ ...integration, status: 'CONNECTED' })
+      setQrCode(null)
+      toast.success('Simulation: Connected to WhatsApp!')
+    } catch (err: any) {
+      console.error('Simulation error:', err)
+      toast.error(err.message || 'Simulation failed')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleReset = async () => {
     if (!integration?.id) return
     setLoading(true)
     setError(null)
-    await supabase
-      .from('user_integrations')
-      .update({ status: 'DISCONNECTED' })
-      .eq('id', integration.id)
-    setIntegration({ ...integration, status: 'DISCONNECTED' })
-    qrAttempted.current = false
-    setQrCode(null)
-    setLoading(false)
+    try {
+      await supabase
+        .from('user_integrations')
+        .update({ status: 'DISCONNECTED' })
+        .eq('id', integration.id)
+
+      // Also try to call the disconnect edge function just in case
+      await supabase.functions
+        .invoke('evolution-disconnect', {
+          body: { integrationId: integration.id },
+        })
+        .catch(console.error)
+
+      setIntegration({ ...integration, status: 'DISCONNECTED' })
+      qrAttempted.current = false
+      setQrCode(null)
+    } catch (err: any) {
+      console.error('Reset error:', err)
+      setError(err.message || 'Failed to disconnect')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleRetry = () => {

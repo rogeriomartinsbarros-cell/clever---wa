@@ -34,14 +34,26 @@ Deno.serve(async (req: Request) => {
       .eq('id', integrationId)
       .eq('user_id', user.id)
       .single()
-    if (!integ) throw new Error('Missing configuration or unauthorized')
+    if (!integ) {
+      return new Response(
+        JSON.stringify({
+          error: 'Integration record not found. Please refresh the page to initialize it.',
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
 
     const evolutionApiUrlRaw = integ.evolution_api_url || Deno.env.get('EVOLUTION_API_URL') || ''
     const evolutionApiUrl = evolutionApiUrlRaw.replace(/\/$/, '')
     const evolutionApiKey = integ.evolution_api_key || Deno.env.get('EVOLUTION_API_KEY') || ''
 
     if (!evolutionApiUrl || !evolutionApiKey) {
-      throw new Error('Evolution API is not globally configured or provided in integration.')
+      return new Response(
+        JSON.stringify({
+          error: 'Evolution API is not configured. Please set the API URL and API Key in settings.',
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
     }
 
     const instanceName = integ.user_id
@@ -69,7 +81,7 @@ Deno.serve(async (req: Request) => {
       return new Response(
         JSON.stringify({ error: `Evolution State failed (${stateRes.status}): ${errorText}` }),
         {
-          status: 400,
+          status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         },
       )
@@ -172,7 +184,7 @@ Deno.serve(async (req: Request) => {
               error: `Evolution Create failed (${createRes.status}): ${errorText}`,
             }),
             {
-              status: 400,
+              status: 200,
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             },
           )
@@ -236,7 +248,7 @@ Deno.serve(async (req: Request) => {
       return new Response(
         JSON.stringify({ error: `Evolution Connect failed (${connectRes.status}): ${errorText}` }),
         {
-          status: 400,
+          status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         },
       )
@@ -294,7 +306,7 @@ Deno.serve(async (req: Request) => {
     })
   } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }

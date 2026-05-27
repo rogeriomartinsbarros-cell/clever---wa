@@ -30,40 +30,56 @@ export const IntegrationProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const fetchIntegration = async () => {
-      const { data, error } = await supabase
-        .from('user_integrations')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle()
+      try {
+        const { data, error } = await supabase
+          .from('user_integrations')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle()
 
-      if (!data) {
-        const newIntegration = {
-          user_id: user.id,
-          instance_name: user.id,
-          status: 'DISCONNECTED',
-          is_setup_completed: false,
-          is_webhook_enabled: false,
+        if (error) {
+          console.error('Error fetching integration:', error)
+          // If we got an error, we still need to clear loading state
+          setLoading(false)
+          return
         }
-        const { data: inserted } = await supabase
-          .from('user_integrations')
-          .insert(newIntegration as any)
-          .select()
-          .single()
 
-        if (inserted) setIntegration(inserted as UserIntegration)
-      } else if (data.instance_name !== user.id) {
-        const { data: updated } = await supabase
-          .from('user_integrations')
-          .update({ instance_name: user.id } as any)
-          .eq('id', data.id)
-          .select()
-          .single()
+        if (!data) {
+          const newIntegration = {
+            user_id: user.id,
+            instance_name: user.id,
+            status: 'DISCONNECTED',
+            is_setup_completed: false,
+            is_webhook_enabled: false,
+          }
+          const { data: inserted, error: insertError } = await supabase
+            .from('user_integrations')
+            .insert(newIntegration as any)
+            .select()
+            .single()
 
-        if (updated) setIntegration(updated as UserIntegration)
-      } else {
-        setIntegration(data as UserIntegration)
+          if (insertError) {
+            console.error('Error creating integration:', insertError)
+          }
+
+          if (inserted) setIntegration(inserted as UserIntegration)
+        } else if (data.instance_name !== user.id) {
+          const { data: updated } = await supabase
+            .from('user_integrations')
+            .update({ instance_name: user.id } as any)
+            .eq('id', data.id)
+            .select()
+            .single()
+
+          if (updated) setIntegration(updated as UserIntegration)
+        } else {
+          setIntegration(data as UserIntegration)
+        }
+      } catch (err) {
+        console.error('Unexpected error in fetchIntegration:', err)
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
 
     fetchIntegration()
