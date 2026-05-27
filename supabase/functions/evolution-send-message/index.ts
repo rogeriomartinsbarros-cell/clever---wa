@@ -48,6 +48,32 @@ Deno.serve(async (req: Request) => {
 
     if (!contact || !contact.remote_jid) throw new Error('Contact not found')
 
+    const numberToCheck = contact.remote_jid.split('@')[0]
+
+    // Pre-Validate number on WhatsApp
+    const checkRes = await fetch(`${evoUrl}/chat/whatsappNumbers/${integration.instance_name}`, {
+      method: 'POST',
+      headers: {
+        apikey: evoKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ numbers: [numberToCheck] }),
+    })
+
+    if (checkRes.ok) {
+      const checkData = await checkRes.json()
+      const exists = Array.isArray(checkData) && checkData.length > 0 && checkData[0].exists
+      if (!exists) {
+        return new Response(JSON.stringify({ error: 'Number not found on WhatsApp' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+    } else {
+      console.warn('Could not verify number, proceeding anyway. Status:', checkRes.status)
+    }
+
+    // Proceed to send the message
     const response = await fetch(`${evoUrl}/message/sendText/${integration.instance_name}`, {
       method: 'POST',
       headers: {

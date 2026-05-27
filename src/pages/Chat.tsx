@@ -124,8 +124,22 @@ export default function Chat() {
       const { data, error } = await supabase.functions.invoke('evolution-send-message', {
         body: { contactId: contact.id, text },
       })
-      if (error) throw error
-      if (data?.error) throw new Error(data.error)
+
+      if (error) {
+        if (error.message?.includes('Number not found') || (error as any).context?.status === 400) {
+          toast.error('O número informado não possui uma conta de WhatsApp ativa')
+          return
+        }
+        throw error
+      }
+
+      if (data?.error) {
+        if (data.error.includes('Number not found on WhatsApp')) {
+          toast.error('O número informado não possui uma conta de WhatsApp ativa')
+          return
+        }
+        throw new Error(data.error)
+      }
     } catch (err: any) {
       toast.error(err.message || 'Failed to send message')
     } finally {
