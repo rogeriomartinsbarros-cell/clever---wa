@@ -22,7 +22,7 @@ Deno.serve(async (req: Request) => {
     } = await supabaseClient.auth.getUser()
     if (userError || !user) throw new Error('Unauthorized')
 
-    const { contactId, text } = await req.json()
+    const { contactId, text, forceSend } = await req.json()
     if (!contactId || !text) throw new Error('Missing contactId or text')
 
     const { data: integration } = await supabaseClient
@@ -48,29 +48,90 @@ Deno.serve(async (req: Request) => {
 
     if (!contact || !contact.remote_jid) throw new Error('Contact not found')
 
-    const numberToCheck = contact.remote_jid.split('@')[0]
+    // Check message history to bypass validation if a relationship exists
+    const { data: messagesHistory } = await supabaseClient
+      .from('whatsapp_messages')
+      .select('id')
+      .eq('contact_id', contactId)
+      .limit(1)
 
-    // Pre-Validate number on WhatsApp
-    const checkRes = await fetch(`${evoUrl}/chat/whatsappNumbers/${integration.instance_name}`, {
-      method: 'POST',
-      headers: {
-        apikey: evoKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ numbers: [numberToCheck] }),
-    })
+    const hasHistory = messagesHistory && messagesHistory.length > 0
+    let targetJid = contact.remote_jid
 
-    if (checkRes.ok) {
-      const checkData = await checkRes.json()
-      const exists = Array.isArray(checkData) && checkData.length > 0 && checkData[0].exists
-      if (!exists) {
-        return new Response(JSON.stringify({ error: 'Number not found on WhatsApp' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        })
+    if (!hasHistory && !forceSend) {
+      const numberToCheck = contact.remote_jid.split('@')[0]
+      const numericNumber = numberToCheck.replace(/\D/g, '')
+      let numbersToTest = [numericNumber]
+
+      // BR 9th digit logic
+      if (
+        numericNumber.startsWith('55') &&
+        (numericNumber.length === 12 || numericNumber.length === 13)
+      ) {
+        const ddd = numericNumber.substring(2, 4)
+        const body = numericNumber.substring(4)
+        if (body.length === 8) {
+          numbersToTest.push(`55${ddd}9${body}`)
+        } else if (body.length === 9 && body.startsWith('9')) {
+          numbersToTest.push(`55${ddd}${body.substring(1)}`)
+        }
       }
-    } else {
-      console.warn('Could not verify number, proceeding anyway. Status:', checkRes.status)
+
+      let validationSuccess = false
+      let apiFailed = false
+
+      for (const num of numbersToTest) {
+        let checkRes = await fetch(`${evoUrl}/chat/onWhatsApp/${integration.instance_name}`, {
+          method: 'POST',
+          headers: { apikey: evoKey, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ numbers: [num] }),
+        })
+
+        if (!checkRes.ok && checkRes.status === 404) {
+          checkRes = await fetch(`${evoUrl}/chat/whatsappNumbers/${integration.instance_name}`, {
+            method: 'POST',
+            headers: { apikey: evoKey, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ numbers: [num] }),
+          })
+        }
+
+        if (checkRes.ok) {
+          const checkData = await checkRes.json()
+          const exists = Array.isArray(checkData) && checkData.length > 0 && checkData[0].exists
+          if (exists) {
+            validationSuccess = true
+            targetJid = checkData[0].jid || `${num}@s.whatsapp.net`
+            break
+          }
+        } else {
+          apiFailed = true
+        }
+      }
+
+      if (!validationSuccess) {
+        if (apiFailed) {
+          console.warn('Evolution API failed to verify number, but we will block unless forced.')
+        }
+        return new Response(
+          JSON.stringify({ error: 'Number not found on WhatsApp', needsForceSend: true }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          },
+        )
+      }
+    }
+
+    if (targetJid !== contact.remote_jid) {
+      // Update contact if we found a better formatted JID to ensure database consistency
+      const { error: updateErr } = await supabaseClient
+        .from('whatsapp_contacts')
+        .update({ remote_jid: targetJid })
+        .eq('id', contactId)
+
+      if (updateErr) {
+        console.warn('Failed to update remote_jid (possibly duplicate):', updateErr)
+      }
     }
 
     // Proceed to send the message
@@ -81,7 +142,7 @@ Deno.serve(async (req: Request) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        number: contact.remote_jid,
+        number: targetJid,
         text: text,
       }),
     })

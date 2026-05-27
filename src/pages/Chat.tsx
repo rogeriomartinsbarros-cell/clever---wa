@@ -34,6 +34,7 @@ export default function Chat() {
   const [loading, setLoading] = useState(true)
   const [newMessage, setNewMessage] = useState('')
   const [isSending, setIsSending] = useState(false)
+  const [forceSendMode, setForceSendMode] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -93,7 +94,6 @@ export default function Chat() {
   }
 
   const handleAgentChange = async (value: string) => {
-    // Treat 'none_disable' as a proxy for no agent assigned (null in database)
     const newAgentId = value === 'none_disable' ? null : value
     const { error } = await supabase
       .from('whatsapp_contacts')
@@ -122,22 +122,23 @@ export default function Chat() {
 
     try {
       const { data, error } = await supabase.functions.invoke('evolution-send-message', {
-        body: { contactId: contact.id, text },
+        body: { contactId: contact.id, text, forceSend: forceSendMode },
       })
 
       if (error) {
         let isNumberNotFound = false
+        let needsForceSend = false
 
         if (error.message?.includes('Number not found on WhatsApp')) {
           isNumberNotFound = true
-        } else if (
-          (error as any).context instanceof Response &&
-          (error as any).context.status === 400
-        ) {
+        }
+
+        if ((error as any).context instanceof Response && (error as any).context.status === 400) {
           try {
             const errorData = await (error as any).context.clone().json()
             if (errorData?.error?.includes('Number not found on WhatsApp')) {
               isNumberNotFound = true
+              needsForceSend = errorData?.needsForceSend
             }
           } catch (e) {
             // Ignore parse error
@@ -145,7 +146,18 @@ export default function Chat() {
         }
 
         if (isNumberNotFound) {
-          toast.error(t('number_not_on_whatsapp' as TranslationKey))
+          if (needsForceSend) {
+            setForceSendMode(true)
+            setNewMessage(text)
+            toast.error(
+              t('number_not_on_whatsapp_force' as TranslationKey) ||
+                'Validation failed. Click send again to force send.',
+            )
+          } else {
+            toast.error(
+              t('number_not_on_whatsapp' as TranslationKey) || 'Number not found on WhatsApp.',
+            )
+          }
           return
         }
         throw error
@@ -153,11 +165,24 @@ export default function Chat() {
 
       if (data?.error) {
         if (data.error.includes('Number not found on WhatsApp')) {
-          toast.error(t('number_not_on_whatsapp' as TranslationKey))
+          if (data.needsForceSend) {
+            setForceSendMode(true)
+            setNewMessage(text)
+            toast.error(
+              t('number_not_on_whatsapp_force' as TranslationKey) ||
+                'Validation failed. Click send again to force send.',
+            )
+          } else {
+            toast.error(
+              t('number_not_on_whatsapp' as TranslationKey) || 'Number not found on WhatsApp.',
+            )
+          }
           return
         }
         throw new Error(data.error)
       }
+
+      setForceSendMode(false)
     } catch (err: any) {
       toast.error(err.message || 'Failed to send message')
     } finally {
@@ -339,16 +364,26 @@ export default function Chat() {
             <div className="relative flex-1">
               <Input
                 value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
+                onChange={(e) => {
+                  setNewMessage(e.target.value)
+                  if (forceSendMode) setForceSendMode(false)
+                }}
                 placeholder={t('type_message' as TranslationKey) || 'Type a message...'}
-                className="w-full bg-card border-border shadow-sm rounded-2xl sm:rounded-full h-12 sm:h-14 px-5 sm:px-6 text-[14px] sm:text-[15px] font-medium pr-12 focus-visible:ring-primary/20 transition-all"
+                className={cn(
+                  'w-full bg-card border-border shadow-sm rounded-2xl sm:rounded-full h-12 sm:h-14 px-5 sm:px-6 text-[14px] sm:text-[15px] font-medium pr-12 focus-visible:ring-primary/20 transition-all',
+                  forceSendMode && 'border-orange-500/50 focus-visible:ring-orange-500/20',
+                )}
               />
             </div>
             <Button
               type="submit"
               disabled={isSending || !newMessage.trim()}
               size="icon"
-              className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl sm:rounded-full shrink-0 shadow-subtle hover:scale-105 transition-all duration-300"
+              className={cn(
+                'h-12 w-12 sm:h-14 sm:w-14 rounded-2xl sm:rounded-full shrink-0 shadow-subtle hover:scale-105 transition-all duration-300',
+                forceSendMode && 'bg-orange-500 hover:bg-orange-600 text-white',
+              )}
+              title={forceSendMode ? 'Force Send' : 'Send'}
             >
               {isSending ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
