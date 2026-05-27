@@ -11,7 +11,19 @@ import {
   AlertCircle,
   PowerOff,
   ShieldCheck,
+  Trash2,
 } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { useIntegration } from '@/hooks/use-integration'
 import { supabase } from '@/lib/supabase/client'
 import { toast } from 'sonner'

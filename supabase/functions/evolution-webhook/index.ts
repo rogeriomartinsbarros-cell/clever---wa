@@ -87,6 +87,14 @@ Deno.serve(async (req: Request) => {
         let aiAgentId = contact?.ai_agent_id
 
         if (!contact) {
+          const { data: defaultAgent } = await supabase
+            .from('ai_agents')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('is_active', true)
+            .limit(1)
+            .maybeSingle()
+
           const { data: newContact, error: insertError } = await supabase
             .from('whatsapp_contacts')
             .insert({
@@ -95,6 +103,7 @@ Deno.serve(async (req: Request) => {
               push_name: pushName,
               phone_number: remoteJid.split('@')[0],
               last_message_at: timestamp,
+              ai_agent_id: defaultAgent?.id || null,
             })
             .select('id, ai_agent_id')
             .single()
@@ -139,6 +148,47 @@ Deno.serve(async (req: Request) => {
           processAiResponse(userId, contactId, supabaseUrl, supabaseKey).catch((err) => {
             console.error('[evolution-webhook] AI processing error:', err)
           })
+        }
+      }
+    }
+
+    if (payload.event === 'contacts.upsert') {
+      const instanceName = payload.instance
+      const data = payload.data
+
+      const { data: integration, error: integrationError } = await supabase
+        .from('user_integrations')
+        .select('user_id')
+        .eq('instance_name', instanceName)
+        .single()
+
+      if (!integrationError && integration) {
+        const userId = integration.user_id
+        const contacts = Array.isArray(data) ? data : [data].filter(Boolean)
+
+        for (const c of contacts) {
+          const remoteJid = c.id || c.remoteJid
+          if (!remoteJid || remoteJid.includes('@g.us') || remoteJid.includes('status@broadcast'))
+            continue
+
+          const pushName = c.pushName || c.name || c.verifiedName || null
+          if (!pushName) continue
+
+          const { data: existing } = await supabase
+            .from('whatsapp_contacts')
+            .select('id, push_name')
+            .eq('user_id', userId)
+            .eq('remote_jid', remoteJid)
+            .single()
+
+          if (existing) {
+            if (existing.push_name !== pushName) {
+              await supabase
+                .from('whatsapp_contacts')
+                .update({ push_name: pushName })
+                .eq('id', existing.id)
+            }
+          }
         }
       }
     }
