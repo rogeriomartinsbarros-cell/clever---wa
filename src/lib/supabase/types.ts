@@ -286,6 +286,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      wipe_whatsapp_data: { Args: { p_user_id: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
@@ -545,6 +546,20 @@ export const Constants = {
 //     WITH CHECK: (auth.uid() = user_id)
 
 // --- DATABASE FUNCTIONS ---
+// FUNCTION handle_instance_change()
+//   CREATE OR REPLACE FUNCTION public.handle_instance_change()
+//    RETURNS trigger
+//    LANGUAGE plpgsql
+//    SECURITY DEFINER
+//   AS $function$
+//   BEGIN
+//     IF NEW.instance_name IS DISTINCT FROM OLD.instance_name AND OLD.instance_name IS NOT NULL THEN
+//       PERFORM public.wipe_whatsapp_data(NEW.user_id);
+//     END IF;
+//     RETURN NEW;
+//   END;
+//   $function$
+//
 // FUNCTION merge_whatsapp_contacts(uuid, uuid, uuid[])
 //   CREATE OR REPLACE FUNCTION public.merge_whatsapp_contacts(p_user_id uuid, p_primary_contact_id uuid, p_secondary_contact_ids uuid[])
 //    RETURNS void
@@ -565,6 +580,22 @@ export const Constants = {
 //   END;
 //   $function$
 //
+// FUNCTION wipe_whatsapp_data(uuid)
+//   CREATE OR REPLACE FUNCTION public.wipe_whatsapp_data(p_user_id uuid)
+//    RETURNS void
+//    LANGUAGE plpgsql
+//   AS $function$
+//   BEGIN
+//     DELETE FROM public.whatsapp_messages WHERE user_id = p_user_id;
+//     DELETE FROM public.whatsapp_contacts WHERE user_id = p_user_id;
+//     DELETE FROM public.contact_identity WHERE user_id = p_user_id;
+//   END;
+//   $function$
+//
+
+// --- TRIGGERS ---
+// Table: user_integrations
+//   on_instance_change: CREATE TRIGGER on_instance_change AFTER UPDATE OF instance_name ON public.user_integrations FOR EACH ROW EXECUTE FUNCTION handle_instance_change()
 
 // --- INDEXES ---
 // Table: contact_identity
