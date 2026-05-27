@@ -115,13 +115,25 @@ Deno.serve(async (req: Request) => {
           contactId = newContact.id
           aiAgentId = newContact.ai_agent_id
         } else {
-          await supabase
-            .from('whatsapp_contacts')
-            .update({
-              push_name: pushName || undefined,
-              last_message_at: timestamp,
-            })
-            .eq('id', contactId)
+          if (!aiAgentId) {
+            const { data: defaultAgent } = await supabase
+              .from('ai_agents')
+              .select('id')
+              .eq('user_id', userId)
+              .eq('is_active', true)
+              .limit(1)
+              .maybeSingle()
+
+            if (defaultAgent) {
+              aiAgentId = defaultAgent.id
+            }
+          }
+
+          const updatePayload: any = { last_message_at: timestamp }
+          if (pushName) updatePayload.push_name = pushName
+          if (aiAgentId !== contact.ai_agent_id) updatePayload.ai_agent_id = aiAgentId
+
+          await supabase.from('whatsapp_contacts').update(updatePayload).eq('id', contactId)
         }
 
         if (!contactId) continue
@@ -145,9 +157,11 @@ Deno.serve(async (req: Request) => {
         }
 
         if (!fromMe && aiAgentId) {
-          processAiResponse(userId, contactId, supabaseUrl, supabaseKey).catch((err) => {
+          try {
+            await processAiResponse(userId, contactId, supabaseUrl, supabaseKey)
+          } catch (err) {
             console.error('[evolution-webhook] AI processing error:', err)
-          })
+          }
         }
       }
     }
