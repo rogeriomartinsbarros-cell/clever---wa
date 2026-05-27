@@ -11,33 +11,42 @@ export type Database = {
     Tables: {
       ai_agents: {
         Row: {
+          business_hours: Json | null
           created_at: string | null
           description: string | null
+          emergency_contacts: string | null
           gemini_api_key: string
           id: string
           is_active: boolean | null
+          knowledge_base: string | null
           name: string
           system_prompt: string
           updated_at: string | null
           user_id: string
         }
         Insert: {
+          business_hours?: Json | null
           created_at?: string | null
           description?: string | null
+          emergency_contacts?: string | null
           gemini_api_key: string
           id?: string
           is_active?: boolean | null
+          knowledge_base?: string | null
           name: string
           system_prompt: string
           updated_at?: string | null
           user_id: string
         }
         Update: {
+          business_hours?: Json | null
           created_at?: string | null
           description?: string | null
+          emergency_contacts?: string | null
           gemini_api_key?: string
           id?: string
           is_active?: boolean | null
+          knowledge_base?: string | null
           name?: string
           system_prompt?: string
           updated_at?: string | null
@@ -426,6 +435,9 @@ export const Constants = {
 //   system_prompt: text (not null)
 //   gemini_api_key: text (not null)
 //   is_active: boolean (nullable, default: false)
+//   business_hours: jsonb (nullable, default: ...)
+//   emergency_contacts: text (nullable)
+//   knowledge_base: text (nullable)
 //   created_at: timestamp with time zone (nullable, default: now())
 //   updated_at: timestamp with time zone (nullable, default: now())
 // Table: contact_identity
