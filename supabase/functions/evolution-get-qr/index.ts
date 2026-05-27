@@ -6,27 +6,43 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) throw new Error('Missing Authorization header')
+
     const { integrationId } = await req.json()
     if (!integrationId) throw new Error('Missing integrationId')
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-    const evolutionApiUrlRaw = Deno.env.get('EVOLUTION_API_URL') || ''
-    const evolutionApiUrl = evolutionApiUrlRaw.replace(/\/$/, '')
-    const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY') || ''
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || ''
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 
-    if (!evolutionApiUrl || !evolutionApiKey) {
-      throw new Error('Evolution API is not globally configured.')
-    }
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    })
 
-    const supabase = createClient(supabaseUrl, supabaseKey)
+    const {
+      data: { user },
+      error: userError,
+    } = await supabaseAuth.auth.getUser()
+    if (userError || !user) throw new Error('Unauthorized')
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     const { data: integ } = await supabase
       .from('user_integrations')
       .select('*')
       .eq('id', integrationId)
+      .eq('user_id', user.id)
       .single()
-    if (!integ) throw new Error('Missing configuration')
+    if (!integ) throw new Error('Missing configuration or unauthorized')
+
+    const evolutionApiUrlRaw = integ.evolution_api_url || Deno.env.get('EVOLUTION_API_URL') || ''
+    const evolutionApiUrl = evolutionApiUrlRaw.replace(/\/$/, '')
+    const evolutionApiKey = integ.evolution_api_key || Deno.env.get('EVOLUTION_API_KEY') || ''
+
+    if (!evolutionApiUrl || !evolutionApiKey) {
+      throw new Error('Evolution API is not globally configured or provided in integration.')
+    }
 
     const instanceName = integ.user_id
 
