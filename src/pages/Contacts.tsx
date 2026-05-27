@@ -20,6 +20,7 @@ import {
   Star,
   Sparkles,
   Send,
+  Edit,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
@@ -62,16 +63,23 @@ export default function Contacts() {
   const dateLocale = language === 'pt' ? ptBR : enUS
   const [search, setSearch] = useState('')
   const [activeTab, setActiveTab] = useState('All')
-  const { contacts, loading, assignAgent, updateStatusBulk } = useContacts(search)
+  const { contacts, loading, assignAgent, updateBulk } = useContacts(search)
   const { agents } = useAgents()
   const navigate = useNavigate()
 
   const [selectedContacts, setSelectedContacts] = useState<string[]>([])
+
+  // Send Bulk Messaging states
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false)
   const [bulkText, setBulkText] = useState('')
   const [bulkFile, setBulkFile] = useState<File | null>(null)
   const [isSendingBulk, setIsSendingBulk] = useState(false)
   const [progress, setProgress] = useState(0)
+
+  // Bulk Edit Modal states
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [bulkAgentId, setBulkAgentId] = useState('unchanged')
+  const [bulkStatus, setBulkStatus] = useState('unchanged')
 
   const handleAssignAgent = async (contactId: string, agentId: string) => {
     try {
@@ -101,10 +109,21 @@ export default function Contacts() {
     }
   }
 
-  const handleMarkReturning = async (isReturning: boolean) => {
+  const handleBulkEditSave = async () => {
     try {
-      await updateStatusBulk(selectedContacts, isReturning)
-      toast.success(t('bulk_success'))
+      const updates: any = {}
+      if (bulkAgentId !== 'unchanged') {
+        updates.ai_agent_id = bulkAgentId === 'none' ? null : bulkAgentId
+      }
+      if (bulkStatus !== 'unchanged') {
+        updates.is_returning_client = bulkStatus === 'returning'
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await updateBulk(selectedContacts, updates)
+        toast.success(t('bulk_success'))
+      }
+      setIsEditModalOpen(false)
       setSelectedContacts([])
     } catch (e) {
       toast.error(t('bulk_error'))
@@ -129,10 +148,9 @@ export default function Contacts() {
         const contact = contacts.find((c) => c.id === contactId)
         if (!contact) continue
 
-        const text = bulkText.replace(
-          /{{push_name}}/g,
-          contact.push_name || t('friend' as TranslationKey),
-        )
+        const text = bulkText
+          .replace(/{{push_name}}/g, contact.push_name || t('friend' as TranslationKey))
+          .replace(/{{name}}/g, contact.push_name || t('friend' as TranslationKey))
 
         await supabase.functions.invoke('evolution-send-message', {
           body: {
@@ -259,11 +277,12 @@ export default function Contacts() {
                 onClick={() => navigate(`/app/chat/${contact.id}`)}
               >
                 <div
-                  className="absolute top-5 right-5 z-20"
+                  className="absolute top-5 right-5 z-20 flex items-center justify-center p-2 -m-2"
                   onClick={(e) => {
+                    e.preventDefault()
                     e.stopPropagation()
-                    toggleContact(contact.id)
                   }}
+                  onPointerDown={(e) => e.stopPropagation()}
                 >
                   <Checkbox
                     checked={selectedContacts.includes(contact.id)}
@@ -391,20 +410,15 @@ export default function Contacts() {
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => handleMarkReturning(true)}
+            onClick={() => {
+              setBulkAgentId('unchanged')
+              setBulkStatus('unchanged')
+              setIsEditModalOpen(true)
+            }}
             className="gap-2 rounded-full whitespace-nowrap"
           >
-            <Star className="w-4 h-4" />{' '}
-            <span className="hidden md:inline">{t('mark_returning' as TranslationKey)}</span>
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => handleMarkReturning(false)}
-            className="gap-2 rounded-full whitespace-nowrap"
-          >
-            <Sparkles className="w-4 h-4" />{' '}
-            <span className="hidden md:inline">{t('mark_new' as TranslationKey)}</span>
+            <Edit className="w-4 h-4" />{' '}
+            <span className="hidden md:inline">{t('bulk_edit' as TranslationKey)}</span>
           </Button>
           <Button
             size="sm"
@@ -417,6 +431,56 @@ export default function Contacts() {
         </div>
       )}
 
+      {/* Bulk Edit Modal */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('bulk_edit' as TranslationKey)}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{t('assign_agent' as TranslationKey)}</label>
+              <Select value={bulkAgentId} onValueChange={setBulkAgentId}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unchanged">{t('unchanged' as TranslationKey)}</SelectItem>
+                  <SelectItem value="none">{t('no_agent' as TranslationKey)}</SelectItem>
+                  {agents.map((agent) => (
+                    <SelectItem key={agent.id} value={agent.id}>
+                      {agent.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{t('status' as TranslationKey)}</label>
+              <Select value={bulkStatus} onValueChange={setBulkStatus}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unchanged">{t('unchanged' as TranslationKey)}</SelectItem>
+                  <SelectItem value="returning">
+                    {t('returning_client' as TranslationKey)}
+                  </SelectItem>
+                  <SelectItem value="new">{t('new_client' as TranslationKey)}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
+              {t('cancel')}
+            </Button>
+            <Button onClick={handleBulkEditSave}>{t('save_changes' as TranslationKey)}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send Bulk Messaging Modal */}
       <Dialog open={isBulkModalOpen} onOpenChange={setIsBulkModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -429,7 +493,7 @@ export default function Contacts() {
               <Textarea
                 value={bulkText}
                 onChange={(e) => setBulkText(e.target.value)}
-                placeholder="Olá {{push_name}}, temos uma novidade para você!"
+                placeholder="Olá {{name}}, temos uma novidade para você!"
                 rows={5}
                 disabled={isSendingBulk}
               />

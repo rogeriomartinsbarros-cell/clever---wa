@@ -165,6 +165,7 @@ export type Database = {
           classification: string | null
           created_at: string | null
           id: string
+          is_returning_client: boolean
           last_message_at: string | null
           phone_number: string | null
           pipeline_stage: string | null
@@ -180,6 +181,7 @@ export type Database = {
           classification?: string | null
           created_at?: string | null
           id?: string
+          is_returning_client?: boolean
           last_message_at?: string | null
           phone_number?: string | null
           pipeline_stage?: string | null
@@ -195,6 +197,7 @@ export type Database = {
           classification?: string | null
           created_at?: string | null
           id?: string
+          is_returning_client?: boolean
           last_message_at?: string | null
           phone_number?: string | null
           pipeline_stage?: string | null
@@ -468,6 +471,7 @@ export const Constants = {
 //   phone_number: text (nullable)
 //   ai_agent_id: uuid (nullable)
 //   pipeline_stage: text (nullable, default: 'Em Espera'::text)
+//   is_returning_client: boolean (not null, default: false)
 // Table: whatsapp_messages
 //   id: uuid (not null, default: gen_random_uuid())
 //   user_id: uuid (not null)

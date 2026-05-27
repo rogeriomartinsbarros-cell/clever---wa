@@ -81,5 +81,22 @@ export const useContacts = (searchQuery: string = '') => {
     }
   }
 
-  return { contacts, loading, assignAgent, updateStatusBulk }
+  const updateBulk = async (
+    contactIds: string[],
+    updates: { is_returning_client?: boolean; ai_agent_id?: string | null },
+  ) => {
+    if (!user) return
+    const { error } = await supabase
+      .from('whatsapp_contacts')
+      .update(updates)
+      .in('id', contactIds)
+      .eq('user_id', user.id)
+
+    if (error) {
+      console.error('Error in updateBulk:', error)
+      throw error
+    }
+  }
+
+  return { contacts, loading, assignAgent, updateStatusBulk, updateBulk }
 }
