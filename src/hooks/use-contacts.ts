@@ -67,5 +67,19 @@ export const useContacts = (searchQuery: string = '') => {
     }
   }
 
-  return { contacts, loading, assignAgent }
+  const updateStatusBulk = async (contactIds: string[], isReturning: boolean) => {
+    if (!user) return
+    const { error } = await supabase
+      .from('whatsapp_contacts')
+      .update({ is_returning_client: isReturning })
+      .in('id', contactIds)
+      .eq('user_id', user.id)
+
+    if (error) {
+      console.error('Error updating bulk status:', error)
+      throw error
+    }
+  }
+
+  return { contacts, loading, assignAgent, updateStatusBulk }
 }

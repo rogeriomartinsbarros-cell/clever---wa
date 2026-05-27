@@ -17,6 +17,9 @@ import {
   Loader2,
   Activity,
   Clock,
+  Star,
+  Sparkles,
+  Send,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
@@ -33,6 +36,17 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from 'sonner'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Textarea } from '@/components/ui/textarea'
+import { supabase } from '@/lib/supabase/client'
 
 const CATEGORIES = [
   { id: 'All', labelKey: 'all', icon: UserRound },
@@ -48,9 +62,16 @@ export default function Contacts() {
   const dateLocale = language === 'pt' ? ptBR : enUS
   const [search, setSearch] = useState('')
   const [activeTab, setActiveTab] = useState('All')
-  const { contacts, loading, assignAgent } = useContacts(search)
+  const { contacts, loading, assignAgent, updateStatusBulk } = useContacts(search)
   const { agents } = useAgents()
   const navigate = useNavigate()
+
+  const [selectedContacts, setSelectedContacts] = useState<string[]>([])
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false)
+  const [bulkText, setBulkText] = useState('')
+  const [bulkFile, setBulkFile] = useState<File | null>(null)
+  const [isSendingBulk, setIsSendingBulk] = useState(false)
+  const [progress, setProgress] = useState(0)
 
   const handleAssignAgent = async (contactId: string, agentId: string) => {
     try {
@@ -66,8 +87,82 @@ export default function Contacts() {
     return contacts.filter((c) => c.classification === activeTab)
   }, [contacts, activeTab])
 
+  const toggleContact = (id: string) => {
+    setSelectedContacts((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
+    )
+  }
+
+  const toggleAll = () => {
+    if (selectedContacts.length === filteredContacts.length && filteredContacts.length > 0) {
+      setSelectedContacts([])
+    } else {
+      setSelectedContacts(filteredContacts.map((c) => c.id))
+    }
+  }
+
+  const handleMarkReturning = async (isReturning: boolean) => {
+    try {
+      await updateStatusBulk(selectedContacts, isReturning)
+      toast.success(t('bulk_success'))
+      setSelectedContacts([])
+    } catch (e) {
+      toast.error(t('bulk_error'))
+    }
+  }
+
+  const handleSendBulk = async () => {
+    if (!bulkText && !bulkFile) return
+    setIsSendingBulk(true)
+    setProgress(0)
+    try {
+      let mediaUrl = ''
+      if (bulkFile) {
+        const fileName = `${Date.now()}-${bulkFile.name}`
+        const { error } = await supabase.storage.from('marketing-media').upload(fileName, bulkFile)
+        if (error) throw error
+        mediaUrl = supabase.storage.from('marketing-media').getPublicUrl(fileName).data.publicUrl
+      }
+
+      for (let i = 0; i < selectedContacts.length; i++) {
+        const contactId = selectedContacts[i]
+        const contact = contacts.find((c) => c.id === contactId)
+        if (!contact) continue
+
+        const text = bulkText.replace(
+          /{{push_name}}/g,
+          contact.push_name || t('friend' as TranslationKey),
+        )
+
+        await supabase.functions.invoke('evolution-send-message', {
+          body: {
+            contactId,
+            text,
+            mediaUrl,
+            fileName: bulkFile?.name,
+            mimeType: bulkFile?.type,
+          },
+        })
+
+        setProgress(i + 1)
+        if (i < selectedContacts.length - 1) {
+          await new Promise((r) => setTimeout(r, 2000 + Math.random() * 3000))
+        }
+      }
+      toast.success(t('bulk_success'))
+      setIsBulkModalOpen(false)
+      setSelectedContacts([])
+      setBulkText('')
+      setBulkFile(null)
+    } catch (e) {
+      toast.error(t('bulk_error'))
+    } finally {
+      setIsSendingBulk(false)
+    }
+  }
+
   return (
-    <div className="max-w-7xl mx-auto space-y-10 p-6 md:p-12 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-apple min-h-full bg-background">
+    <div className="max-w-7xl mx-auto space-y-10 p-6 md:p-12 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-apple min-h-full bg-background relative">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
           <h2 className="text-4xl font-bold tracking-tight text-foreground">{t('contacts')}</h2>
@@ -84,30 +179,50 @@ export default function Contacts() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="w-full justify-start h-auto flex-wrap bg-transparent p-0 gap-3 mb-8">
-          {CATEGORIES.map((cat) => {
-            const count = contacts.filter(
-              (c) => cat.id === 'All' || c.classification === cat.id,
-            ).length
-            return (
-              <TabsTrigger
-                key={cat.id}
-                value={cat.id}
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border-2 border-transparent data-[state=inactive]:bg-card data-[state=inactive]:border-border data-[state=inactive]:text-muted-foreground rounded-full px-5 py-2.5 flex items-center gap-2.5 transition-all duration-300 shadow-subtle hover:shadow-elevation"
-              >
-                <cat.icon className="h-4 w-4 opacity-80" />
-                <span className="font-semibold text-[14px]">
-                  {t(cat.labelKey as TranslationKey)}
-                </span>
-                <span className="bg-current/10 text-current px-2.5 py-0.5 rounded-full text-[11px] font-bold opacity-90">
-                  {count}
-                </span>
-              </TabsTrigger>
-            )
-          })}
-        </TabsList>
-      </Tabs>
+      <div className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mb-6">
+          <TabsList className="w-full justify-start h-auto flex-wrap bg-transparent p-0 gap-3">
+            {CATEGORIES.map((cat) => {
+              const count = contacts.filter(
+                (c) => cat.id === 'All' || c.classification === cat.id,
+              ).length
+              return (
+                <TabsTrigger
+                  key={cat.id}
+                  value={cat.id}
+                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border-2 border-transparent data-[state=inactive]:bg-card data-[state=inactive]:border-border data-[state=inactive]:text-muted-foreground rounded-full px-5 py-2.5 flex items-center gap-2.5 transition-all duration-300 shadow-subtle hover:shadow-elevation"
+                >
+                  <cat.icon className="h-4 w-4 opacity-80" />
+                  <span className="font-semibold text-[14px]">
+                    {t(cat.labelKey as TranslationKey)}
+                  </span>
+                  <span className="bg-current/10 text-current px-2.5 py-0.5 rounded-full text-[11px] font-bold opacity-90">
+                    {count}
+                  </span>
+                </TabsTrigger>
+              )
+            })}
+          </TabsList>
+        </Tabs>
+
+        {!loading && filteredContacts.length > 0 && (
+          <div className="flex items-center gap-3 mb-6 px-2">
+            <Checkbox
+              id="select-all"
+              checked={
+                filteredContacts.length > 0 && selectedContacts.length === filteredContacts.length
+              }
+              onCheckedChange={toggleAll}
+            />
+            <label
+              htmlFor="select-all"
+              className="text-sm font-medium leading-none cursor-pointer text-muted-foreground"
+            >
+              {t('all')}
+            </label>
+          </div>
+        )}
+      </div>
 
       <div className="w-full">
         {loading ? (
@@ -135,9 +250,26 @@ export default function Contacts() {
             {filteredContacts.map((contact) => (
               <div
                 key={contact.id}
-                className="group relative flex flex-col bg-card rounded-[2rem] p-6 border border-border/60 shadow-subtle hover:shadow-elevation transition-all duration-300 hover:-translate-y-1.5 cursor-pointer overflow-hidden"
+                className={cn(
+                  'group relative flex flex-col bg-card rounded-[2rem] p-6 border transition-all duration-300 hover:-translate-y-1.5 cursor-pointer overflow-hidden',
+                  selectedContacts.includes(contact.id)
+                    ? 'border-primary shadow-elevation'
+                    : 'border-border/60 shadow-subtle hover:shadow-elevation',
+                )}
                 onClick={() => navigate(`/app/chat/${contact.id}`)}
               >
+                <div
+                  className="absolute top-5 right-5 z-20"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    toggleContact(contact.id)
+                  }}
+                >
+                  <Checkbox
+                    checked={selectedContacts.includes(contact.id)}
+                    onCheckedChange={() => toggleContact(contact.id)}
+                  />
+                </div>
                 <div className="flex justify-between items-start mb-5">
                   <Avatar className="h-14 w-14 border-2 border-background shadow-sm transition-transform duration-300 group-hover:scale-105">
                     <AvatarImage src={contact.profile_picture_url || ''} />
@@ -145,17 +277,6 @@ export default function Contacts() {
                       {contact.push_name?.charAt(0) || '#'}
                     </AvatarFallback>
                   </Avatar>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="opacity-0 group-hover:opacity-100 transition-all duration-300 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full h-10 w-10 shrink-0 -mr-2 -mt-2"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      navigate(`/app/chat/${contact.id}`)
-                    }}
-                  >
-                    <MessageSquare className="h-5 w-5" />
-                  </Button>
                 </div>
 
                 <div className="mb-6 flex-1">
@@ -204,21 +325,38 @@ export default function Contacts() {
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        'font-bold tracking-tight shadow-sm text-[11px] px-3 py-1 rounded-full',
-                        getBadgeColor(contact.classification),
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          'font-bold tracking-tight shadow-sm text-[11px] px-3 py-1 rounded-full',
+                          getBadgeColor(contact.classification),
+                        )}
+                      >
+                        {contact.classification
+                          ? t(
+                              contact.classification
+                                .toLowerCase()
+                                .replace(/ /g, '_') as TranslationKey,
+                            )
+                          : t('unclassified')}
+                      </Badge>
+                      {contact.is_returning_client ? (
+                        <Badge
+                          variant="secondary"
+                          className="bg-purple-500/10 text-purple-500 hover:bg-purple-500/20 text-[11px] px-2 py-0.5 rounded-full shadow-sm"
+                        >
+                          {t('returning_client' as TranslationKey)}
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="secondary"
+                          className="bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 text-[11px] px-2 py-0.5 rounded-full shadow-sm"
+                        >
+                          {t('new_client' as TranslationKey)}
+                        </Badge>
                       )}
-                    >
-                      {contact.classification
-                        ? t(
-                            contact.classification
-                              .toLowerCase()
-                              .replace(/ /g, '_') as TranslationKey,
-                          )
-                        : t('unclassified')}
-                    </Badge>
+                    </div>
 
                     <div className="flex items-center gap-1.5 text-sm font-bold text-foreground">
                       <Activity className="h-4 w-4 text-muted-foreground/70" />
@@ -243,6 +381,91 @@ export default function Contacts() {
           </div>
         )}
       </div>
+
+      {selectedContacts.length > 0 && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-popover/95 backdrop-blur-md border border-border shadow-elevation rounded-full px-6 py-4 flex items-center gap-4 z-50 animate-in slide-in-from-bottom-10 fade-in duration-300">
+          <span className="font-semibold text-sm text-foreground bg-muted px-3 py-1 rounded-full whitespace-nowrap">
+            {selectedContacts.length} {t('selected' as TranslationKey)}
+          </span>
+          <div className="w-px h-6 bg-border mx-2"></div>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => handleMarkReturning(true)}
+            className="gap-2 rounded-full whitespace-nowrap"
+          >
+            <Star className="w-4 h-4" />{' '}
+            <span className="hidden md:inline">{t('mark_returning' as TranslationKey)}</span>
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => handleMarkReturning(false)}
+            className="gap-2 rounded-full whitespace-nowrap"
+          >
+            <Sparkles className="w-4 h-4" />{' '}
+            <span className="hidden md:inline">{t('mark_new' as TranslationKey)}</span>
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => setIsBulkModalOpen(true)}
+            className="gap-2 rounded-full whitespace-nowrap"
+          >
+            <Send className="w-4 h-4" />{' '}
+            <span className="hidden md:inline">{t('send_bulk' as TranslationKey)}</span>
+          </Button>
+        </div>
+      )}
+
+      <Dialog open={isBulkModalOpen} onOpenChange={setIsBulkModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('bulk_message' as TranslationKey)}</DialogTitle>
+            <DialogDescription>{t('bulk_message_desc' as TranslationKey)}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{t('message_text' as TranslationKey)}</label>
+              <Textarea
+                value={bulkText}
+                onChange={(e) => setBulkText(e.target.value)}
+                placeholder="Olá {{push_name}}, temos uma novidade para você!"
+                rows={5}
+                disabled={isSendingBulk}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{t('media_file' as TranslationKey)}</label>
+              <Input
+                type="file"
+                accept="image/*,video/*"
+                onChange={(e) => setBulkFile(e.target.files?.[0] || null)}
+                disabled={isSendingBulk}
+              />
+            </div>
+            {isSendingBulk && (
+              <div className="flex flex-col items-center justify-center gap-2 py-4 text-primary">
+                <Loader2 className="w-8 h-8 animate-spin" />
+                <p className="text-sm font-semibold">
+                  {t('sending_bulk' as TranslationKey)} ({progress}/{selectedContacts.length})
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsBulkModalOpen(false)}
+              disabled={isSendingBulk}
+            >
+              {t('cancel')}
+            </Button>
+            <Button onClick={handleSendBulk} disabled={isSendingBulk || (!bulkText && !bulkFile)}>
+              {t('send')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

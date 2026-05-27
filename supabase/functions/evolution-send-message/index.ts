@@ -28,8 +28,8 @@ Deno.serve(async (req: Request) => {
     } = await supabaseClient.auth.getUser()
     if (userError || !user) throw new Error('Unauthorized')
 
-    const { contactId, text, forceSend } = await req.json()
-    if (!contactId || !text) throw new Error('Missing contactId or text')
+    const { contactId, text, forceSend, mediaUrl, fileName, mimeType } = await req.json()
+    if (!contactId || (!text && !mediaUrl)) throw new Error('Missing contactId, text or mediaUrl')
 
     const { data: integration } = await supabaseClient
       .from('user_integrations')
@@ -141,17 +141,36 @@ Deno.serve(async (req: Request) => {
     }
 
     // Proceed to send the message
-    const response = await fetch(`${evoUrl}/message/sendText/${integration.instance_name}`, {
-      method: 'POST',
-      headers: {
-        apikey: evoKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        number: targetJid,
-        text: text,
-      }),
-    })
+    let response
+    if (mediaUrl) {
+      response = await fetch(`${evoUrl}/message/sendMedia/${integration.instance_name}`, {
+        method: 'POST',
+        headers: {
+          apikey: evoKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          number: targetJid,
+          mediatype: 'image',
+          mimetype: mimeType || 'image/jpeg',
+          caption: text || '',
+          media: mediaUrl,
+          fileName: fileName || 'image.jpg',
+        }),
+      })
+    } else {
+      response = await fetch(`${evoUrl}/message/sendText/${integration.instance_name}`, {
+        method: 'POST',
+        headers: {
+          apikey: evoKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          number: targetJid,
+          text: text,
+        }),
+      })
+    }
 
     if (!response.ok) {
       const errText = await response.text()

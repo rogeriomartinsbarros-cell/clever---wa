@@ -14,7 +14,7 @@ export async function processAiResponse(
 
     const { data: contact, error: contactError } = await supabase
       .from('whatsapp_contacts')
-      .select('ai_agent_id, remote_jid')
+      .select('ai_agent_id, remote_jid, is_returning_client, ai_analysis_summary')
       .eq('id', contactId)
       .single()
 
@@ -84,11 +84,22 @@ export async function processAiResponse(
       .map((m) => `${m.from_me ? 'Me' : 'Contact'}: ${m.text}`)
       .join('\n')
 
-    const prompt = `
+    let prompt = `
 System Instructions:
 ${agent.system_prompt}
+`
 
-You are acting as "Me" in the following conversation.
+    if (contact.is_returning_client) {
+      prompt += `\n\nNote: This is a Returning Client. Please adopt a Welcoming/Concierge tone focused on nurturing the relationship and directing them to a specialist if needed.`
+    } else {
+      prompt += `\n\nNote: This is a New Lead. Follow the standard First Contact/Qualification script to understand their needs.`
+    }
+
+    if (contact.ai_analysis_summary) {
+      prompt += `\n\nContext from previous interactions: ${contact.ai_analysis_summary}`
+    }
+
+    prompt += `\n\nYou are acting as "Me" in the following conversation.
 Read the conversation history carefully.
 Respond ONLY with the exact text of your next reply. Do not use quotes, explanations, or the prefix "Me:".
 

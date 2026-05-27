@@ -35,6 +35,7 @@ export interface WhatsAppContact {
   ai_analysis_summary: string | null
   ai_agent_id: string | null
   pipeline_stage?: string | null
+  is_returning_client?: boolean
   created_at: string
 }
 
