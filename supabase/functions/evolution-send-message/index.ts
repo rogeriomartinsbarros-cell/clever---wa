@@ -50,8 +50,8 @@ Deno.serve(async (req: Request) => {
 
     const numberToCheck = contact.remote_jid.split('@')[0]
 
-    // Pre-Validate number on WhatsApp using /chat/onWhatsApp endpoint as requested, fallback to /chat/whatsappNumbers
-    let checkRes = await fetch(`${evoUrl}/chat/onWhatsApp/${integration.instance_name}`, {
+    // Pre-Validate number on WhatsApp
+    const checkRes = await fetch(`${evoUrl}/chat/whatsappNumbers/${integration.instance_name}`, {
       method: 'POST',
       headers: {
         apikey: evoKey,
@@ -59,17 +59,6 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({ numbers: [numberToCheck] }),
     })
-
-    if (!checkRes.ok && checkRes.status === 404) {
-      checkRes = await fetch(`${evoUrl}/chat/whatsappNumbers/${integration.instance_name}`, {
-        method: 'POST',
-        headers: {
-          apikey: evoKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ numbers: [numberToCheck] }),
-      })
-    }
 
     if (checkRes.ok) {
       const checkData = await checkRes.json()

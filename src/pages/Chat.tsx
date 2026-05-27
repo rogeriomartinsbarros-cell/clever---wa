@@ -126,8 +126,26 @@ export default function Chat() {
       })
 
       if (error) {
-        if (error.message?.includes('Number not found') || (error as any).context?.status === 400) {
-          toast.error('O número informado não possui uma conta de WhatsApp ativa')
+        let isNumberNotFound = false
+
+        if (error.message?.includes('Number not found on WhatsApp')) {
+          isNumberNotFound = true
+        } else if (
+          (error as any).context instanceof Response &&
+          (error as any).context.status === 400
+        ) {
+          try {
+            const errorData = await (error as any).context.clone().json()
+            if (errorData?.error?.includes('Number not found on WhatsApp')) {
+              isNumberNotFound = true
+            }
+          } catch (e) {
+            // Ignore parse error
+          }
+        }
+
+        if (isNumberNotFound) {
+          toast.error(t('number_not_on_whatsapp' as TranslationKey))
           return
         }
         throw error
@@ -135,7 +153,7 @@ export default function Chat() {
 
       if (data?.error) {
         if (data.error.includes('Number not found on WhatsApp')) {
-          toast.error('O número informado não possui uma conta de WhatsApp ativa')
+          toast.error(t('number_not_on_whatsapp' as TranslationKey))
           return
         }
         throw new Error(data.error)
