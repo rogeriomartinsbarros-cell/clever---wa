@@ -16,7 +16,6 @@ import {
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useNavigate, Navigate } from 'react-router-dom'
-import closerLogo from '@/assets/closer_logo-fcd09.png'
 
 export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(false)
@@ -55,7 +54,9 @@ export default function Auth() {
       <Card className="w-full max-w-md shadow-elevation border border-border/40 rounded-[2rem] bg-white animate-in fade-in slide-in-from-bottom-8 duration-500 ease-apple">
         <CardHeader className="space-y-4 text-center pb-6 pt-10 px-8">
           <div className="mx-auto mb-4 flex justify-center">
-            <img src={closerLogo} alt="Closer" className="h-10 w-auto object-contain" />
+            <span className="text-4xl font-black tracking-tighter text-foreground">
+              CLEVER <span className="text-primary">+</span>
+            </span>
           </div>
           <CardTitle className="text-3xl font-semibold tracking-tight">
             {isSignUp ? t('create_account') : t('welcome_back')}

@@ -53,5 +53,19 @@ export const useContacts = (searchQuery: string = '') => {
     }
   }, [user, searchQuery])
 
-  return { contacts, loading }
+  const assignAgent = async (contactId: string, agentId: string | null) => {
+    if (!user) return
+    const { error } = await supabase
+      .from('whatsapp_contacts')
+      .update({ ai_agent_id: agentId })
+      .eq('id', contactId)
+      .eq('user_id', user.id)
+
+    if (error) {
+      console.error('Error assigning agent:', error)
+      throw error
+    }
+  }
+
+  return { contacts, loading, assignAgent }
 }

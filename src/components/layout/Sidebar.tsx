@@ -2,7 +2,6 @@ import { Link, useLocation } from 'react-router-dom'
 import { useLanguage } from '@/hooks/use-language'
 import { LayoutDashboard, Users, Settings as SettingsIcon, Bot, Columns } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import closerLogo from '@/assets/closer_logo-fcd09.png'
 
 export function Sidebar() {
   const location = useLocation()
@@ -19,8 +18,10 @@ export function Sidebar() {
   return (
     <aside className="hidden w-64 flex-col border-r border-border bg-background md:flex z-20">
       <div className="flex flex-col pt-7 pb-5 px-7">
-        <div className="flex items-center py-1 -mt-[17px]">
-          <img src={closerLogo} alt="Closer" className="h-12 w-auto object-contain" />
+        <div className="flex items-center py-2">
+          <span className="text-3xl font-black tracking-tighter text-foreground">
+            CLEVER <span className="text-primary">+</span>
+          </span>
         </div>
       </div>
       <nav className="flex-1 space-y-2 p-5">

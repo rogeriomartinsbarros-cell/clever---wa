@@ -4,7 +4,6 @@ import { useLanguage } from '@/hooks/use-language'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { Button } from '@/components/ui/button'
 import { Users, History, Zap } from 'lucide-react'
-import closerLogo from '@/assets/closer_logo-fcd09.png'
 
 export default function Index() {
   const { user, loading } = useAuth()
@@ -18,7 +17,9 @@ export default function Index() {
     <div className="min-h-screen bg-background flex flex-col font-sans">
       <header className="border-b border-border/40 bg-white/80 backdrop-blur-xl px-6 py-4 flex items-center justify-between fixed top-0 w-full z-50 transition-all">
         <div className="flex items-center">
-          <img src={closerLogo} alt="Closer" className="h-8 w-auto object-contain" />
+          <span className="text-2xl font-black tracking-tighter text-foreground">
+            CLEVER <span className="text-primary">+</span>
+          </span>
         </div>
         <div className="flex gap-2 sm:gap-4 items-center">
           <LanguageSwitcher />

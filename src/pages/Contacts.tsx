@@ -24,6 +24,15 @@ import { ptBR, enUS } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
 import { getBadgeColor } from './Dashboard'
 import { cn } from '@/lib/utils'
+import { useAgents } from '@/hooks/use-agents'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { toast } from 'sonner'
 
 const CATEGORIES = [
   { id: 'All', labelKey: 'all', icon: UserRound },
@@ -39,8 +48,18 @@ export default function Contacts() {
   const dateLocale = language === 'pt' ? ptBR : enUS
   const [search, setSearch] = useState('')
   const [activeTab, setActiveTab] = useState('All')
-  const { contacts, loading } = useContacts(search)
+  const { contacts, loading, assignAgent } = useContacts(search)
+  const { agents } = useAgents()
   const navigate = useNavigate()
+
+  const handleAssignAgent = async (contactId: string, agentId: string) => {
+    try {
+      await assignAgent(contactId, agentId === 'none' ? null : agentId)
+      toast.success(agentId === 'none' ? t('agent_removed') : t('agent_assigned'))
+    } catch (error) {
+      toast.error(t('error_save'))
+    }
+  }
 
   const filteredContacts = useMemo(() => {
     if (activeTab === 'All') return contacts
@@ -151,6 +170,39 @@ export default function Contacts() {
                 </div>
 
                 <div className="flex flex-col gap-4 mt-auto pt-5 border-t border-border/40">
+                  <div
+                    className="w-full"
+                    onClick={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <Select
+                      value={contact.ai_agent_id || 'none'}
+                      onValueChange={(val) => handleAssignAgent(contact.id, val)}
+                    >
+                      <SelectTrigger className="h-8 text-xs font-semibold bg-muted/30 border-border/50 hover:bg-muted transition-colors rounded-xl w-full">
+                        <SelectValue placeholder={t('assign_agent')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none" className="text-muted-foreground font-medium">
+                          {t('no_agent')}
+                        </SelectItem>
+                        {agents.map((agent) => (
+                          <SelectItem key={agent.id} value={agent.id} className="font-medium">
+                            <div className="flex items-center gap-2">
+                              <div
+                                className={cn(
+                                  'h-2 w-2 rounded-full',
+                                  agent.is_active ? 'bg-primary' : 'bg-muted-foreground',
+                                )}
+                              />
+                              {agent.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <div className="flex items-center justify-between">
                     <Badge
                       variant="outline"

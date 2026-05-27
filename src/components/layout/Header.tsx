@@ -12,7 +12,6 @@ import {
 import { LogOut, Settings } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
-import closerLogo from '@/assets/closer_logo-fcd09.png'
 
 export function Header() {
   const { user, signOut } = useAuth()
@@ -34,8 +33,10 @@ export function Header() {
   return (
     <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-border bg-background/80 backdrop-blur-2xl px-6 md:px-10 transition-all">
       <div className="flex items-center gap-5">
-        <div className="flex items-center md:hidden -mt-[17px]">
-          <img src={closerLogo} alt="Closer" className="h-12 w-auto object-contain" />
+        <div className="flex items-center md:hidden">
+          <span className="text-xl font-black tracking-tighter text-foreground">
+            CLEVER <span className="text-primary">+</span>
+          </span>
         </div>
         <div className="flex items-center gap-2.5 text-xs font-bold text-foreground bg-muted/50 px-4 py-2 rounded-full border border-border shadow-subtle">
           <div className={cn('h-2.5 w-2.5 rounded-full', getStatusColor(integration?.status))} />
