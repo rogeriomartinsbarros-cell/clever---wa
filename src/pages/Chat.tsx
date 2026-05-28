@@ -4,7 +4,9 @@ import { supabase } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { useAgents } from '@/hooks/use-agents'
 import { useLanguage, TranslationKey } from '@/hooks/use-language'
-import { WhatsAppContact, WhatsAppMessage } from '@/lib/types'
+import { WhatsAppContact, WhatsAppMessage, Appointment } from '@/lib/types'
+import { useAppointments } from '@/hooks/use-appointments'
+import { AppointmentModal } from '@/components/appointments/AppointmentModal'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -54,7 +56,9 @@ export default function Chat() {
   const [isSending, setIsSending] = useState(false)
   const [forceSendMode, setForceSendMode] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
+  const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const { appointments, refresh: refreshAppointments } = useAppointments(id)
 
   const [formData, setFormData] = useState({
     profession: '',
@@ -640,6 +644,46 @@ export default function Chat() {
                     </div>
                   )}
 
+                  <div className="flex items-center justify-between mt-4 mb-2">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      {t('appointments' as TranslationKey) || 'Appointments'}
+                    </h4>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsAppointmentModalOpen(true)}
+                      className="h-7 text-xs font-semibold px-2 bg-primary/10 text-primary hover:bg-primary/20"
+                    >
+                      + {t('add_appointment' as TranslationKey) || 'Add'}
+                    </Button>
+                  </div>
+
+                  {appointments && appointments.length > 0 ? (
+                    <div className="flex flex-col gap-2">
+                      {appointments.slice(0, 3).map((apt: Appointment) => (
+                        <div
+                          key={apt.id}
+                          className="p-3 rounded-xl bg-card border border-border/50 shadow-sm flex flex-col gap-1"
+                        >
+                          <span className="font-semibold text-sm">{apt.title}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(apt.start_time), "dd/MM/yyyy 'às' HH:mm", {
+                              locale: dateLocale,
+                            })}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 bg-muted/30 rounded-xl border border-border/40 border-dashed">
+                      <p className="text-xs text-muted-foreground font-medium">
+                        {t('no_appointments' as TranslationKey) || 'No appointments.'}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="h-px w-full bg-border/40 my-4" />
+
                   {!contact.profession &&
                     !contact.birthday &&
                     !contact.hobbies &&
@@ -783,6 +827,15 @@ export default function Chat() {
           </div>
         )}
       </div>
+
+      {isAppointmentModalOpen && (
+        <AppointmentModal
+          open={isAppointmentModalOpen}
+          onOpenChange={setIsAppointmentModalOpen}
+          contactId={contact.id}
+          onSuccess={refreshAppointments}
+        />
+      )}
     </div>
   )
 }

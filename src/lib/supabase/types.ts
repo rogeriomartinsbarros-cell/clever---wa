@@ -171,49 +171,73 @@ export type Database = {
         Row: {
           ai_agent_id: string | null
           ai_analysis_summary: string | null
+          birthday: string | null
           classification: string | null
           created_at: string | null
+          family_members: string | null
+          food_preferences: string | null
+          hobbies: string | null
           id: string
           is_returning_client: boolean
           last_message_at: string | null
+          music_preferences: string | null
           phone_number: string | null
           pipeline_stage: string | null
+          profession: string | null
           profile_picture_url: string | null
           push_name: string | null
+          relationship_notes: string | null
           remote_jid: string
           score: number | null
+          sports_team: string | null
           user_id: string
         }
         Insert: {
           ai_agent_id?: string | null
           ai_analysis_summary?: string | null
+          birthday?: string | null
           classification?: string | null
           created_at?: string | null
+          family_members?: string | null
+          food_preferences?: string | null
+          hobbies?: string | null
           id?: string
           is_returning_client?: boolean
           last_message_at?: string | null
+          music_preferences?: string | null
           phone_number?: string | null
           pipeline_stage?: string | null
+          profession?: string | null
           profile_picture_url?: string | null
           push_name?: string | null
+          relationship_notes?: string | null
           remote_jid: string
           score?: number | null
+          sports_team?: string | null
           user_id: string
         }
         Update: {
           ai_agent_id?: string | null
           ai_analysis_summary?: string | null
+          birthday?: string | null
           classification?: string | null
           created_at?: string | null
+          family_members?: string | null
+          food_preferences?: string | null
+          hobbies?: string | null
           id?: string
           is_returning_client?: boolean
           last_message_at?: string | null
+          music_preferences?: string | null
           phone_number?: string | null
           pipeline_stage?: string | null
+          profession?: string | null
           profile_picture_url?: string | null
           push_name?: string | null
+          relationship_notes?: string | null
           remote_jid?: string
           score?: number | null
+          sports_team?: string | null
           user_id?: string
         }
         Relationships: [
@@ -485,6 +509,14 @@ export const Constants = {
 //   ai_agent_id: uuid (nullable)
 //   pipeline_stage: text (nullable, default: 'Em Espera'::text)
 //   is_returning_client: boolean (not null, default: false)
+//   profession: text (nullable)
+//   birthday: date (nullable)
+//   hobbies: text (nullable)
+//   music_preferences: text (nullable)
+//   sports_team: text (nullable)
+//   food_preferences: text (nullable)
+//   family_members: text (nullable)
+//   relationship_notes: text (nullable)
 // Table: whatsapp_messages
 //   id: uuid (not null, default: gen_random_uuid())
 //   user_id: uuid (not null)

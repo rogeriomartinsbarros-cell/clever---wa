@@ -50,6 +50,20 @@ export interface WhatsAppContact {
   created_at: string
 }
 
+export interface Appointment {
+  id: string
+  user_id: string
+  contact_id: string
+  title: string
+  description: string | null
+  start_time: string
+  end_time: string
+  status: 'scheduled' | 'completed' | 'cancelled'
+  google_event_id: string | null
+  created_at: string
+  contact?: WhatsAppContact
+}
+
 export interface WhatsAppMessage {
   id: string
   user_id: string

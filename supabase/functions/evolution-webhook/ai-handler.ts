@@ -138,7 +138,12 @@ Be highly humanized, empathetic, welcoming, and focused on solving the user's pr
       prompt += `\n\nContext from previous interactions: ${contact.ai_analysis_summary}`
     }
 
-    prompt += `\n\nYou are acting as "Me" in the following conversation.
+    prompt += `\n\nSCHEDULING INSTRUCTIONS:
+If the user wants to schedule an appointment/meeting and you both agreed on a date and time, YOU MUST include this exact JSON block at the very end of your response:
+[BOOK_APPOINTMENT] {"title": "Meeting with Client", "start_time": "YYYY-MM-DDTHH:mm:00Z"}
+Use the current year and timezone information to format the date correctly in UTC format. Only do this once confirmed.
+
+You are acting as "Me" in the following conversation.
 Respond ONLY with the exact text of your next reply. Do not use quotes, explanations, or the prefix "Me:".
 
 CONVERSATION HISTORY:
@@ -167,7 +172,7 @@ ${history}
     }
 
     const aiData = await aiRes.json()
-    const responseText = aiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
+    let responseText = aiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
 
     if (!responseText) {
       console.error(`[AI Handler] Exiting: Empty response from Gemini.`)
@@ -175,6 +180,45 @@ ${history}
     }
 
     console.log(`[AI Handler] Gemini generated text: "${responseText}"`)
+
+    const bookingMatch = responseText.match(/\[BOOK_APPOINTMENT\]\s*({.*})/)
+    if (bookingMatch) {
+      try {
+        const bookingData = JSON.parse(bookingMatch[1])
+        responseText = responseText.replace(bookingMatch[0], '').trim()
+
+        const endDateTime = new Date(
+          new Date(bookingData.start_time).getTime() + 60 * 60 * 1000,
+        ).toISOString()
+
+        const { data: appt, error: apptError } = await supabase
+          .from('appointments')
+          .insert({
+            user_id: userId,
+            contact_id: contactId,
+            title: bookingData.title || 'Meeting',
+            start_time: bookingData.start_time,
+            end_time: endDateTime,
+            status: 'scheduled',
+          })
+          .select()
+          .single()
+
+        if (appt) {
+          console.log(`[AI Handler] Successfully booked appointment: ${appt.id}`)
+          supabase.functions
+            .invoke('google-calendar-sync', { body: { appointment_id: appt.id } })
+            .catch(console.error)
+          supabase.functions
+            .invoke('send-appointment-email', { body: { appointment_id: appt.id } })
+            .catch(console.error)
+        } else if (apptError) {
+          console.error(`[AI Handler] Error creating appointment:`, apptError)
+        }
+      } catch (e) {
+        console.error('[AI Handler] Error parsing booking block', e)
+      }
+    }
 
     const { data: integration } = await supabase
       .from('user_integrations')

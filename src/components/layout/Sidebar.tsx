@@ -1,6 +1,13 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useLanguage } from '@/hooks/use-language'
-import { LayoutDashboard, Users, Settings as SettingsIcon, Bot, Columns } from 'lucide-react'
+import {
+  LayoutDashboard,
+  Users,
+  Settings as SettingsIcon,
+  Bot,
+  Columns,
+  Calendar,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function Sidebar() {
@@ -11,6 +18,7 @@ export function Sidebar() {
     { name: t('overview_nav') || 'Overview', path: '/app', icon: LayoutDashboard },
     { name: t('pipeline_nav') || 'Pipeline', path: '/app/pipeline', icon: Columns },
     { name: t('contacts_nav') || 'Contacts', path: '/app/contacts', icon: Users },
+    { name: t('agenda_nav') || 'Agenda', path: '/app/agenda', icon: Calendar },
     { name: 'AI Agents', path: '/app/agents', icon: Bot },
     { name: t('settings_nav') || 'Settings', path: '/settings', icon: SettingsIcon },
   ]

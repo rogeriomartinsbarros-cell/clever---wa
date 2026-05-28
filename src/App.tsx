@@ -12,6 +12,7 @@ import Auth from './pages/Auth'
 import Dashboard from './pages/Dashboard'
 import Contacts from './pages/Contacts'
 import Pipeline from './pages/Pipeline'
+import Agenda from './pages/Agenda'
 import Settings from './pages/Settings'
 import Chat from './pages/Chat'
 import Agents from './pages/Agents'
@@ -36,6 +37,7 @@ const App = () => (
                 <Route path="onboarding" element={<Onboarding />} />
                 <Route path="pipeline" element={<Pipeline />} />
                 <Route path="contacts" element={<Contacts />} />
+                <Route path="agenda" element={<Agenda />} />
                 <Route path="chat/:id" element={<Chat />} />
                 <Route path="agents" element={<Agents />} />
               </Route>
