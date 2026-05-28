@@ -8,6 +8,8 @@
     "evolution-send-message": 14,
     "evolution-sync-contacts": 10,
     "evolution-sync-messages": 10,
-    "evolution-webhook": 13
+    "evolution-webhook": 14,
+    "google-calendar-sync": 1,
+    "send-appointment-email": 1
   }
 }

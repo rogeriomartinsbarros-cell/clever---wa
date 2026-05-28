@@ -15,211 +15,104 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    const url = new URL(req.url)
+    const userId = url.searchParams.get('userId')
+
+    if (!userId) {
+      throw new Error('Missing userId parameter')
+    }
+
+    const bodyText = await req.text()
+    if (!bodyText) {
+      return new Response('ok', { headers: corsHeaders })
+    }
+
+    const body = JSON.parse(bodyText)
+    console.log(`[Webhook] Received event for user ${userId}:`, bodyText.substring(0, 150))
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     const supabase = createClient(supabaseUrl, supabaseKey)
 
-    const payload = await req.json()
-    console.log('[evolution-webhook] Received payload event:', payload.event)
+    // Handle Evolution API Webhook payload
+    const event = body.event || body[0]?.event
+    const data = body.data || body[0]?.data || body
 
-    if (payload.event === 'messages.upsert') {
-      const instanceName = payload.instance
-      const data = payload.data
+    if (event === 'messages.upsert' || event === 'messages.update' || (data.message && data.key)) {
+      const msg = data.message || data
+      const remoteJid = msg.key?.remoteJid || msg.remoteJid
+      const fromMe = msg.key?.fromMe || msg.fromMe
+      const messageId = msg.key?.id || msg.id
+      const pushName = msg.pushName || ''
 
-      const { data: integration, error: integrationError } = await supabase
-        .from('user_integrations')
-        .select('user_id')
-        .eq('instance_name', instanceName)
-        .single()
+      let timestamp = new Date().toISOString()
+      if (msg.messageTimestamp) {
+        timestamp = new Date(msg.messageTimestamp * 1000).toISOString()
+      } else if (msg.timestamp) {
+        timestamp = new Date(msg.timestamp * 1000).toISOString()
+      }
 
-      if (integrationError || !integration) {
-        console.error('[evolution-webhook] Integration not found for instance:', instanceName)
+      let text = ''
+      if (msg.message?.conversation) text = msg.message.conversation
+      else if (msg.message?.extendedTextMessage?.text) text = msg.message.extendedTextMessage.text
+      else if (msg.text) text = msg.text
+
+      if (!remoteJid || remoteJid.includes('@g.us') || remoteJid === 'status@broadcast') {
         return new Response('ok', { headers: corsHeaders })
       }
 
-      const userId = integration.user_id
+      // Upsert contact
+      const { data: contact } = await supabase
+        .from('whatsapp_contacts')
+        .select('id, push_name')
+        .eq('user_id', userId)
+        .eq('remote_jid', remoteJid)
+        .single()
 
-      const messages = Array.isArray(data.message) ? data.message : [data.message].filter(Boolean)
+      let contactId = contact?.id
 
-      for (const messageData of messages) {
-        const remoteJid = messageData.key?.remoteJid
-        if (!remoteJid || remoteJid.includes('@g.us') || remoteJid.includes('status@broadcast')) {
-          continue
-        }
-
-        const pushName = messageData.pushName || null
-        const fromMe = messageData.key?.fromMe || false
-        const messageId = messageData.key?.id
-
-        let text = null
-        let type = 'unknown'
-
-        if (messageData.message?.conversation) {
-          text = messageData.message.conversation
-          type = 'text'
-        } else if (messageData.message?.extendedTextMessage?.text) {
-          text = messageData.message.extendedTextMessage.text
-          type = 'text'
-        } else if (messageData.message?.imageMessage) {
-          text = messageData.message.imageMessage.caption || null
-          type = 'image'
-        } else if (messageData.message?.videoMessage) {
-          text = messageData.message.videoMessage.caption || null
-          type = 'video'
-        } else if (messageData.message?.audioMessage) {
-          type = 'audio'
-        } else if (messageData.message?.documentMessage) {
-          type = 'document'
-        }
-
-        const timestamp = messageData.messageTimestamp
-          ? new Date(messageData.messageTimestamp * 1000).toISOString()
-          : new Date().toISOString()
-
-        const { data: contact, error: contactError } = await supabase
+      if (!contactId) {
+        const { data: newContact } = await supabase
           .from('whatsapp_contacts')
-          .select('id, ai_agent_id')
-          .eq('user_id', userId)
-          .eq('remote_jid', remoteJid)
+          .insert({
+            user_id: userId,
+            remote_jid: remoteJid,
+            push_name: pushName,
+            pipeline_stage: 'Novos Contatos',
+          })
+          .select('id')
           .single()
+        contactId = newContact?.id
+      } else if (pushName && contact.push_name !== pushName) {
+        await supabase.from('whatsapp_contacts').update({ push_name: pushName }).eq('id', contactId)
+      }
 
-        let contactId = contact?.id
-        let aiAgentId = contact?.ai_agent_id
-
-        if (!contact) {
-          const { data: defaultAgent } = await supabase
-            .from('ai_agents')
-            .select('id')
-            .eq('user_id', userId)
-            .eq('is_active', true)
-            .limit(1)
-            .maybeSingle()
-
-          const { data: newContact, error: insertError } = await supabase
-            .from('whatsapp_contacts')
-            .insert({
-              user_id: userId,
-              remote_jid: remoteJid,
-              push_name: pushName,
-              phone_number: remoteJid.split('@')[0],
-              last_message_at: timestamp,
-              ai_agent_id: defaultAgent?.id || null,
-            })
-            .select('id, ai_agent_id')
-            .single()
-
-          if (insertError) {
-            console.error('[evolution-webhook] Error inserting contact:', insertError)
-            continue
-          }
-          contactId = newContact.id
-          aiAgentId = newContact.ai_agent_id
-        } else {
-          if (!aiAgentId) {
-            const { data: defaultAgent } = await supabase
-              .from('ai_agents')
-              .select('id')
-              .eq('user_id', userId)
-              .eq('is_active', true)
-              .limit(1)
-              .maybeSingle()
-
-            if (defaultAgent) {
-              aiAgentId = defaultAgent.id
-            }
-          }
-
-          const updatePayload: any = { last_message_at: timestamp }
-          if (pushName) updatePayload.push_name = pushName
-          if (aiAgentId !== contact.ai_agent_id) updatePayload.ai_agent_id = aiAgentId
-
-          await supabase.from('whatsapp_contacts').update(updatePayload).eq('id', contactId)
-        }
-
-        if (!contactId) continue
-
-        const { error: messageError } = await supabase.from('whatsapp_messages').upsert(
+      if (contactId && text) {
+        const { error: msgError } = await supabase.from('whatsapp_messages').upsert(
           {
             user_id: userId,
             contact_id: contactId,
             message_id: messageId,
             from_me: fromMe,
             text: text,
-            type: type,
+            type: 'text',
             timestamp: timestamp,
-            raw: messageData,
+            raw: msg,
           },
           { onConflict: 'user_id,message_id' },
         )
 
-        if (messageError) {
-          console.error('[evolution-webhook] Error upserting message:', messageError)
-        }
-
-        if (!fromMe && aiAgentId) {
-          try {
-            await processAiResponse(userId, contactId, supabaseUrl, supabaseKey)
-          } catch (err) {
-            console.error('[evolution-webhook] AI processing error:', err)
-          }
-        }
-      }
-    }
-
-    if (payload.event === 'contacts.upsert') {
-      const instanceName = payload.instance
-      const data = payload.data
-
-      const { data: integration, error: integrationError } = await supabase
-        .from('user_integrations')
-        .select('user_id')
-        .eq('instance_name', instanceName)
-        .single()
-
-      if (!integrationError && integration) {
-        const userId = integration.user_id
-        const contacts = Array.isArray(data) ? data : [data].filter(Boolean)
-
-        for (const c of contacts) {
-          const remoteJid = c.id || c.remoteJid
-          if (!remoteJid || remoteJid.includes('@g.us') || remoteJid.includes('status@broadcast'))
-            continue
-
-          const pushName = c.pushName || c.name || c.verifiedName || null
-          if (!pushName) continue
-
-          const { data: existing } = await supabase
+        if (!msgError && !fromMe) {
+          await supabase
             .from('whatsapp_contacts')
-            .select('id, push_name')
-            .eq('user_id', userId)
-            .eq('remote_jid', remoteJid)
-            .single()
+            .update({ last_message_at: timestamp })
+            .eq('id', contactId)
 
-          if (existing) {
-            if (existing.push_name !== pushName) {
-              await supabase
-                .from('whatsapp_contacts')
-                .update({ push_name: pushName })
-                .eq('id', existing.id)
-            }
-          }
+          // Trigger AI handler
+          processAiResponse(userId, contactId, supabaseUrl, supabaseKey).catch((e) => {
+            console.error('[Webhook AI Error]', e)
+          })
         }
-      }
-    }
-
-    if (payload.event === 'connection.update') {
-      const instanceName = payload.instance
-      const state = payload.data?.state
-
-      if (state) {
-        let status = 'WAITING_QR'
-        if (state === 'open') status = 'CONNECTED'
-        if (state === 'close') status = 'DISCONNECTED'
-
-        await supabase
-          .from('user_integrations')
-          .update({ status })
-          .eq('instance_name', instanceName)
       }
     }
 
@@ -227,7 +120,8 @@ Deno.serve(async (req: Request) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error: any) {
-    console.error('[evolution-webhook] Unhandled error:', error)
+    console.error('[Webhook Error]', error.message)
+    // Always return 200 to evolution API to prevent endless retries
     return new Response(JSON.stringify({ error: error.message }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
