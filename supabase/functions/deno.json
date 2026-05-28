@@ -8,7 +8,7 @@
     "evolution-send-message": 14,
     "evolution-sync-contacts": 10,
     "evolution-sync-messages": 10,
-    "evolution-webhook": 14,
+    "evolution-webhook": 15,
     "google-calendar-sync": 1,
     "send-appointment-email": 1
   }

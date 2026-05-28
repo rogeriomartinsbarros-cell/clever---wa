@@ -54,6 +54,53 @@ export type Database = {
         }
         Relationships: []
       }
+      appointments: {
+        Row: {
+          contact_id: string
+          created_at: string
+          description: string | null
+          end_time: string
+          google_event_id: string | null
+          id: string
+          start_time: string
+          status: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string
+          description?: string | null
+          end_time: string
+          google_event_id?: string | null
+          id?: string
+          start_time: string
+          status?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string
+          description?: string | null
+          end_time?: string
+          google_event_id?: string | null
+          id?: string
+          start_time?: string
+          status?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'appointments_contact_id_fkey'
+            columns: ['contact_id']
+            isOneToOne: false
+            referencedRelation: 'whatsapp_contacts'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       contact_identity: {
         Row: {
           canonical_phone: string | null
@@ -465,6 +512,17 @@ export const Constants = {
 //   business_hours: jsonb (nullable, default: '{"enabled": false, "schedule": {"friday": {"end": "18:00", "start": "09:00", "active": true}, "monday": {"end": "18:00", "start": "09:00", "active": true}, "sunday": {"end": "13:00", "start": "09:00", "active": false}, "tuesday": {"end": "18:00", "start": "09:00", "active": true}, "saturday": {"end": "13:00", "start": "09:00", "active": false}, "thursday": {"end": "18:00", "start": "09:00", "active": true}, "wednesday": {"end": "18:00", "start": "09:00", "active": true}}, "timezone": "America/Sao_Paulo"}'::jsonb)
 //   emergency_contacts: text (nullable)
 //   knowledge_base: text (nullable)
+// Table: appointments
+//   id: uuid (not null, default: gen_random_uuid())
+//   user_id: uuid (not null)
+//   contact_id: uuid (not null)
+//   title: text (not null)
+//   description: text (nullable)
+//   start_time: timestamp with time zone (not null)
+//   end_time: timestamp with time zone (not null)
+//   status: text (not null, default: 'scheduled'::text)
+//   google_event_id: text (nullable)
+//   created_at: timestamp with time zone (not null, default: now())
 // Table: contact_identity
 //   id: uuid (not null, default: gen_random_uuid())
 //   instance_id: uuid (not null)
@@ -533,6 +591,10 @@ export const Constants = {
 // Table: ai_agents
 //   PRIMARY KEY ai_agents_pkey: PRIMARY KEY (id)
 //   FOREIGN KEY ai_agents_user_id_fkey: FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+// Table: appointments
+//   FOREIGN KEY appointments_contact_id_fkey: FOREIGN KEY (contact_id) REFERENCES whatsapp_contacts(id) ON DELETE CASCADE
+//   PRIMARY KEY appointments_pkey: PRIMARY KEY (id)
+//   FOREIGN KEY appointments_user_id_fkey: FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
 // Table: contact_identity
 //   FOREIGN KEY contact_identity_instance_id_fkey: FOREIGN KEY (instance_id) REFERENCES user_integrations(id) ON DELETE CASCADE
 //   PRIMARY KEY contact_identity_pkey: PRIMARY KEY (id)
@@ -559,6 +621,10 @@ export const Constants = {
 // Table: ai_agents
 //   Policy "Users can manage their own AI agents" (ALL, PERMISSIVE) roles={public}
 //     USING: (auth.uid() = user_id)
+// Table: appointments
+//   Policy "Users can manage their own appointments" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: (auth.uid() = user_id)
+//     WITH CHECK: (auth.uid() = user_id)
 // Table: contact_identity
 //   Policy "Users can manage their own contact identities" (ALL, PERMISSIVE) roles={public}
 //     USING: (auth.uid() = user_id)

@@ -211,6 +211,10 @@ export const translations = {
     title: 'Title',
     date_time: 'Date & Time',
     no_appointments: 'No upcoming appointments.',
+    consent_granted: 'Consent Granted (LGPD)',
+    consent_denied: 'Consent Denied (LGPD)',
+    consent_pending: 'Consent Pending (LGPD)',
+    consent_status: 'Consent Status',
   },
   pt: {
     sign_in: 'Entrar',
@@ -428,5 +432,9 @@ export const translations = {
     title: 'Título',
     date_time: 'Data e Hora',
     no_appointments: 'Nenhum compromisso futuro.',
+    consent_granted: 'Consentimento Concedido (LGPD)',
+    consent_denied: 'Consentimento Negado (LGPD)',
+    consent_pending: 'Consentimento Pendente (LGPD)',
+    consent_status: 'Status de Consentimento',
   },
 }

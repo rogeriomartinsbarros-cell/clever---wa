@@ -14,7 +14,9 @@ export async function processAiResponse(
 
     const { data: contact, error: contactError } = await supabase
       .from('whatsapp_contacts')
-      .select('ai_agent_id, remote_jid, is_returning_client, ai_analysis_summary')
+      .select(
+        'ai_agent_id, remote_jid, is_returning_client, ai_analysis_summary, consent_status, profession, birthday, hobbies, music_preferences, sports_team, food_preferences, family_members',
+      )
       .eq('id', contactId)
       .single()
 
@@ -138,6 +140,27 @@ Be highly humanized, empathetic, welcoming, and focused on solving the user's pr
       prompt += `\n\nContext from previous interactions: ${contact.ai_analysis_summary}`
     }
 
+    prompt += `\n\nLGPD / PRIVACY INSTRUCTIONS:
+If the user asks what personal data we have about them, summarize this information naturally:
+Profession: ${contact.profession || 'Not provided'}
+Birthday: ${contact.birthday || 'Not provided'}
+Hobbies: ${contact.hobbies || 'Not provided'}
+Music: ${contact.music_preferences || 'Not provided'}
+Sports: ${contact.sports_team || 'Not provided'}
+Food: ${contact.food_preferences || 'Not provided'}
+Family: ${contact.family_members || 'Not provided'}
+
+If the user explicitly agrees, consents, or gives permission to save their data, or if you ask for it and they say "yes" (e.g., "Sim", "Pode", "Concordo", "Pode salvar"), YOU MUST include this exact JSON block at the very end of your response:
+[UPDATE_CONSENT] {"status": "granted"}
+
+If the user explicitly refuses, revokes consent, or asks to delete their data, YOU MUST include this exact JSON block at the very end of your response:
+[UPDATE_CONSENT] {"status": "denied"}
+`
+
+    if (contact.consent_status !== 'granted') {
+      prompt += `\nNote: The user's current consent status is ${contact.consent_status || 'pending'}. You may politely inform them that we store some preferences to offer a personalized experience and ask if they are okay with it, if appropriate for the conversation flow.`
+    }
+
     prompt += `\n\nSCHEDULING INSTRUCTIONS:
 If the user wants to schedule an appointment/meeting and you both agreed on a date and time, YOU MUST include this exact JSON block at the very end of your response:
 [BOOK_APPOINTMENT] {"title": "Meeting with Client", "start_time": "YYYY-MM-DDTHH:mm:00Z"}
@@ -180,6 +203,27 @@ ${history}
     }
 
     console.log(`[AI Handler] Gemini generated text: "${responseText}"`)
+
+    const consentMatch = responseText.match(/\[UPDATE_CONSENT\]\s*({.*})/)
+    if (consentMatch) {
+      try {
+        const consentData = JSON.parse(consentMatch[1])
+        responseText = responseText.replace(consentMatch[0], '').trim()
+
+        if (consentData.status === 'granted' || consentData.status === 'denied') {
+          await supabase
+            .from('whatsapp_contacts')
+            .update({
+              consent_status: consentData.status,
+              consent_at: new Date().toISOString(),
+            })
+            .eq('id', contactId)
+          console.log(`[AI Handler] Updated consent status to ${consentData.status}`)
+        }
+      } catch (e) {
+        console.error('[AI Handler] Error parsing consent block', e)
+      }
+    }
 
     const bookingMatch = responseText.match(/\[BOOK_APPOINTMENT\]\s*({.*})/)
     if (bookingMatch) {

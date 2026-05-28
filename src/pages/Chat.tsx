@@ -35,8 +35,12 @@ import {
   PanelRight,
   X,
   Info,
+  Shield,
+  ShieldCheck,
+  ShieldAlert,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { format, isToday, isYesterday } from 'date-fns'
 import { ptBR, enUS } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
@@ -69,6 +73,7 @@ export default function Chat() {
     food_preferences: '',
     family_members: '',
     relationship_notes: '',
+    consent_status: 'pending' as 'pending' | 'granted' | 'denied',
   })
 
   useEffect(() => {
@@ -92,6 +97,7 @@ export default function Chat() {
           food_preferences: contactData.food_preferences || '',
           family_members: contactData.family_members || '',
           relationship_notes: contactData.relationship_notes || '',
+          consent_status: contactData.consent_status || 'pending',
         })
       }
 
@@ -160,7 +166,13 @@ export default function Chat() {
 
   const handleSaveProfile = async () => {
     if (!contact) return
-    const { error } = await supabase.from('whatsapp_contacts').update(formData).eq('id', contact.id)
+
+    const updates: any = { ...formData }
+    if (formData.consent_status !== contact.consent_status) {
+      updates.consent_at = new Date().toISOString()
+    }
+
+    const { error } = await supabase.from('whatsapp_contacts').update(updates).eq('id', contact.id)
 
     if (error) {
       toast.error(t('error_save' as TranslationKey) || 'Failed to save changes')
@@ -326,9 +338,35 @@ export default function Chat() {
                 </AvatarFallback>
               </Avatar>
               <div className="flex flex-col max-w-[130px] sm:max-w-[240px]">
-                <span className="font-bold text-[15px] sm:text-[17px] tracking-tight truncate text-foreground leading-tight">
-                  {contact.push_name || t('unknown')}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-[15px] sm:text-[17px] tracking-tight truncate text-foreground leading-tight">
+                    {contact.push_name || t('unknown')}
+                  </span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="p-0.5 rounded-full cursor-help">
+                        {contact.consent_status === 'granted' && (
+                          <ShieldCheck className="h-3.5 w-3.5 text-green-500" />
+                        )}
+                        {contact.consent_status === 'denied' && (
+                          <ShieldAlert className="h-3.5 w-3.5 text-red-500" />
+                        )}
+                        {(!contact.consent_status || contact.consent_status === 'pending') && (
+                          <Shield className="h-3.5 w-3.5 text-muted-foreground" />
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        {contact.consent_status === 'granted'
+                          ? t('consent_granted' as TranslationKey)
+                          : contact.consent_status === 'denied'
+                            ? t('consent_denied' as TranslationKey)
+                            : t('consent_pending' as TranslationKey)}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
                 <span className="text-[12px] sm:text-[13px] font-semibold text-muted-foreground truncate">
                   {contact.phone_number
                     ? `+${contact.phone_number}`
@@ -711,6 +749,33 @@ export default function Chat() {
                   value="edit"
                   className="space-y-5 mt-0 outline-none animate-in fade-in pb-8"
                 >
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground ml-1">
+                      {t('consent_status' as TranslationKey) || 'Consent Status (LGPD)'}
+                    </Label>
+                    <Select
+                      value={formData.consent_status || 'pending'}
+                      onValueChange={(val: any) =>
+                        setFormData((p) => ({ ...p, consent_status: val }))
+                      }
+                    >
+                      <SelectTrigger className="rounded-xl h-11 bg-card shadow-sm font-medium">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">
+                          {t('consent_pending' as TranslationKey) || 'Pending'}
+                        </SelectItem>
+                        <SelectItem value="granted">
+                          {t('consent_granted' as TranslationKey) || 'Granted'}
+                        </SelectItem>
+                        <SelectItem value="denied">
+                          {t('consent_denied' as TranslationKey) || 'Denied'}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <div className="space-y-1.5">
                     <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground ml-1">
                       {t('profession' as TranslationKey) || 'Profession'}

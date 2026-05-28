@@ -47,6 +47,8 @@ export interface WhatsAppContact {
   food_preferences?: string | null
   family_members?: string | null
   relationship_notes?: string | null
+  consent_status?: 'pending' | 'granted' | 'denied' | null
+  consent_at?: string | null
   created_at: string
 }
 

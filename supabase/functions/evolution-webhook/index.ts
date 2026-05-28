@@ -15,24 +15,43 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const url = new URL(req.url)
-    const userId = url.searchParams.get('userId')
-
-    if (!userId) {
-      throw new Error('Missing userId parameter')
-    }
-
     const bodyText = await req.text()
     if (!bodyText) {
       return new Response('ok', { headers: corsHeaders })
     }
 
     const body = JSON.parse(bodyText)
-    console.log(`[Webhook] Received event for user ${userId}:`, bodyText.substring(0, 150))
+    console.log(`[Webhook] Received event:`, bodyText.substring(0, 150))
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     const supabase = createClient(supabaseUrl, supabaseKey)
+
+    const instanceName = body.instance || body[0]?.instance
+    let userId = null
+
+    if (instanceName) {
+      const { data: integ } = await supabase
+        .from('user_integrations')
+        .select('user_id')
+        .eq('instance_name', instanceName)
+        .single()
+      if (integ) userId = integ.user_id
+    }
+
+    if (!userId) {
+      // Fallback
+      const url = new URL(req.url)
+      userId = url.searchParams.get('userId')
+    }
+
+    if (!userId) {
+      console.error(`[Webhook] No user found for instance: ${instanceName}`)
+      return new Response(JSON.stringify({ error: 'User/Instance not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
     // Handle Evolution API Webhook payload
     const event = body.event || body[0]?.event

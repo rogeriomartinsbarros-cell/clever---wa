@@ -21,6 +21,9 @@ import {
   Sparkles,
   Send,
   Edit,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
@@ -38,6 +41,7 @@ import {
 } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   Dialog,
   DialogContent,
@@ -345,6 +349,30 @@ export default function Contacts() {
 
                   <div className="flex items-center justify-between">
                     <div className="flex flex-wrap items-center gap-2">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="p-1 rounded-full bg-muted/50 cursor-help shadow-sm">
+                            {contact.consent_status === 'granted' && (
+                              <ShieldCheck className="h-4 w-4 text-green-500" />
+                            )}
+                            {contact.consent_status === 'denied' && (
+                              <ShieldAlert className="h-4 w-4 text-red-500" />
+                            )}
+                            {(!contact.consent_status || contact.consent_status === 'pending') && (
+                              <Shield className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>
+                            {contact.consent_status === 'granted'
+                              ? t('consent_granted' as TranslationKey)
+                              : contact.consent_status === 'denied'
+                                ? t('consent_denied' as TranslationKey)
+                                : t('consent_pending' as TranslationKey)}
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
                       <Badge
                         variant="outline"
                         className={cn(
