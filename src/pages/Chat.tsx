@@ -135,35 +135,6 @@ export default function Chat() {
     }, 100)
   }
 
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSavingProfile(true)
-    try {
-      const { error } = await supabase
-        .from('whatsapp_contacts')
-        .update({
-          profession: profileForm.profession || null,
-          birthday: profileForm.birthday || null,
-          hobbies: profileForm.hobbies || null,
-          music_preferences: profileForm.music_preferences || null,
-          sports_team: profileForm.sports_team || null,
-          food_preferences: profileForm.food_preferences || null,
-          family_members: profileForm.family_members || null,
-          relationship_notes: profileForm.relationship_notes || null,
-        })
-        .eq('id', id)
-
-      if (error) throw error
-
-      setContact((prev) => (prev ? { ...prev, ...profileForm } : null))
-      toast.success(t('settings_saved' as TranslationKey) || 'Profile saved')
-    } catch (err) {
-      toast.error(t('error_save' as TranslationKey) || 'Failed to save')
-    } finally {
-      setIsSavingProfile(false)
-    }
-  }
-
   const handleAgentChange = async (value: string) => {
     const newAgentId = value === 'none_disable' ? null : value
     const { error } = await supabase
