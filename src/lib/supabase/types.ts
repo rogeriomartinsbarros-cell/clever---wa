@@ -220,6 +220,8 @@ export type Database = {
           ai_analysis_summary: string | null
           birthday: string | null
           classification: string | null
+          consent_at: string | null
+          consent_status: string | null
           created_at: string | null
           family_members: string | null
           food_preferences: string | null
@@ -244,6 +246,8 @@ export type Database = {
           ai_analysis_summary?: string | null
           birthday?: string | null
           classification?: string | null
+          consent_at?: string | null
+          consent_status?: string | null
           created_at?: string | null
           family_members?: string | null
           food_preferences?: string | null
@@ -268,6 +272,8 @@ export type Database = {
           ai_analysis_summary?: string | null
           birthday?: string | null
           classification?: string | null
+          consent_at?: string | null
+          consent_status?: string | null
           created_at?: string | null
           family_members?: string | null
           food_preferences?: string | null
@@ -575,6 +581,8 @@ export const Constants = {
 //   food_preferences: text (nullable)
 //   family_members: text (nullable)
 //   relationship_notes: text (nullable)
+//   consent_status: text (nullable, default: 'pending'::text)
+//   consent_at: timestamp with time zone (nullable)
 // Table: whatsapp_messages
 //   id: uuid (not null, default: gen_random_uuid())
 //   user_id: uuid (not null)
@@ -608,6 +616,7 @@ export const Constants = {
 //   UNIQUE user_integrations_user_id_key: UNIQUE (user_id)
 // Table: whatsapp_contacts
 //   FOREIGN KEY whatsapp_contacts_ai_agent_id_fkey: FOREIGN KEY (ai_agent_id) REFERENCES ai_agents(id) ON DELETE SET NULL
+//   CHECK whatsapp_contacts_consent_status_check: CHECK ((consent_status = ANY (ARRAY['pending'::text, 'granted'::text, 'denied'::text])))
 //   PRIMARY KEY whatsapp_contacts_pkey: PRIMARY KEY (id)
 //   FOREIGN KEY whatsapp_contacts_user_id_fkey: FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
 //   UNIQUE whatsapp_contacts_user_id_remote_jid_key: UNIQUE (user_id, remote_jid)
