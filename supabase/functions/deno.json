@@ -1,15 +1,15 @@
 {
   "_versions": {
-    "ai-classify-contacts": 10,
-    "ai-pipeline-monitor": 10,
-    "evolution-create-instance": 10,
-    "evolution-disconnect": 10,
-    "evolution-get-qr": 11,
-    "evolution-send-message": 15,
-    "evolution-sync-contacts": 10,
-    "evolution-sync-messages": 10,
-    "evolution-webhook": 16,
-    "google-calendar-sync": 1,
-    "send-appointment-email": 1
+    "ai-classify-contacts": 11,
+    "ai-pipeline-monitor": 11,
+    "evolution-create-instance": 11,
+    "evolution-disconnect": 11,
+    "evolution-get-qr": 12,
+    "evolution-send-message": 16,
+    "evolution-sync-contacts": 11,
+    "evolution-sync-messages": 11,
+    "evolution-webhook": 17,
+    "google-calendar-sync": 2,
+    "send-appointment-email": 2
   }
 }
