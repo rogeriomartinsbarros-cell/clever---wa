@@ -39,6 +39,14 @@ export interface WhatsAppContact {
   ai_agent_id: string | null
   pipeline_stage?: string | null
   is_returning_client?: boolean
+  profession?: string | null
+  birthday?: string | null
+  hobbies?: string | null
+  music_preferences?: string | null
+  sports_team?: string | null
+  food_preferences?: string | null
+  family_members?: string | null
+  relationship_notes?: string | null
   created_at: string
 }
 
