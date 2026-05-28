@@ -196,12 +196,15 @@ Deno.serve(async (req: Request) => {
       { onConflict: 'user_id,message_id' },
     )
 
-    // Update contact pipeline stage
+    // Update contact pipeline stage, clear unread count and set last message preview
     await supabaseClient
       .from('whatsapp_contacts')
       .update({
         pipeline_stage: 'Em Conversa',
         last_message_at: timestamp,
+        last_message_text: text || '[Media]',
+        last_message_from_me: true,
+        unread_count: 0,
       })
       .eq('id', contactId)
 

@@ -83,12 +83,13 @@ Deno.serve(async (req: Request) => {
       // Upsert contact
       const { data: contact } = await supabase
         .from('whatsapp_contacts')
-        .select('id, push_name')
+        .select('id, push_name, unread_count')
         .eq('user_id', userId)
         .eq('remote_jid', remoteJid)
         .single()
 
       let contactId = contact?.id
+      let currentUnread = contact?.unread_count || 0
 
       if (!contactId) {
         const { data: newContact } = await supabase
@@ -99,11 +100,10 @@ Deno.serve(async (req: Request) => {
             push_name: pushName,
             pipeline_stage: 'Novos Contatos',
           })
-          .select('id')
+          .select('id, unread_count')
           .single()
         contactId = newContact?.id
-      } else if (pushName && contact.push_name !== pushName) {
-        await supabase.from('whatsapp_contacts').update({ push_name: pushName }).eq('id', contactId)
+        currentUnread = 0
       }
 
       if (contactId && text) {
@@ -121,16 +121,29 @@ Deno.serve(async (req: Request) => {
           { onConflict: 'user_id,message_id' },
         )
 
-        if (!msgError && !fromMe) {
-          await supabase
-            .from('whatsapp_contacts')
-            .update({ last_message_at: timestamp })
-            .eq('id', contactId)
+        if (!msgError) {
+          const updatePayload: any = {
+            last_message_at: timestamp,
+            last_message_text: text,
+            last_message_from_me: fromMe,
+          }
 
-          // Trigger AI handler
-          processAiResponse(userId, contactId, supabaseUrl, supabaseKey).catch((e) => {
-            console.error('[Webhook AI Error]', e)
-          })
+          if (!fromMe) {
+            updatePayload.unread_count = currentUnread + 1
+          }
+
+          if (pushName && contact?.push_name !== pushName) {
+            updatePayload.push_name = pushName
+          }
+
+          await supabase.from('whatsapp_contacts').update(updatePayload).eq('id', contactId)
+
+          if (!fromMe) {
+            // Trigger AI handler
+            processAiResponse(userId, contactId, supabaseUrl, supabaseKey).catch((e) => {
+              console.error('[Webhook AI Error]', e)
+            })
+          }
         }
       }
     }

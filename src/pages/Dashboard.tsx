@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useContacts } from '@/hooks/use-contacts'
+import { useRealtimeMessages } from '@/hooks/use-realtime-messages'
 import { useLanguage, TranslationKey } from '@/hooks/use-language'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -48,7 +48,7 @@ export default function Dashboard() {
     status: string
   } | null>(null)
 
-  const { contacts, loading } = useContacts('')
+  const { contacts, loading } = useRealtimeMessages('')
   const navigate = useNavigate()
 
   const pollJob = async (jobId: string, stepName: string) => {

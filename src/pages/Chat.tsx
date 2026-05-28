@@ -88,6 +88,12 @@ export default function Chat() {
 
       if (contactData) {
         setContact(contactData)
+
+        // Reset unread count when opening the chat
+        if ((contactData as any).unread_count > 0) {
+          await supabase.from('whatsapp_contacts').update({ unread_count: 0 }).eq('id', id)
+        }
+
         setFormData({
           profession: contactData.profession || '',
           birthday: contactData.birthday || '',

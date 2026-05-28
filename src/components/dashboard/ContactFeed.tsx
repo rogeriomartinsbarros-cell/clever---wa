@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useContacts } from '@/hooks/use-contacts'
+import { useRealtimeMessages } from '@/hooks/use-realtime-messages'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -9,7 +9,7 @@ import { formatDistanceToNow } from 'date-fns'
 
 export function ContactFeed() {
   const [search, setSearch] = useState('')
-  const { contacts, loading } = useContacts(search)
+  const { contacts, loading } = useRealtimeMessages(search)
   const navigate = useNavigate()
 
   return (
@@ -64,23 +64,39 @@ export function ContactFeed() {
                       {contact.push_name ? contact.push_name.charAt(0).toUpperCase() : '#'}
                     </AvatarFallback>
                   </Avatar>
-                  <div>
-                    <p className="font-semibold text-[14px] text-foreground tracking-tight truncate max-w-[150px] sm:max-w-[180px] group-hover:text-primary transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-[14px] text-foreground tracking-tight truncate group-hover:text-primary transition-colors">
                       {contact.push_name || 'Unknown Contact'}
                     </p>
-                    <p className="text-[12px] font-medium text-muted-foreground truncate max-w-[150px] sm:max-w-[180px]">
-                      {contact.remote_jid.split('@')[0]}
-                    </p>
+                    {(contact as any).last_message_text ? (
+                      <p className="text-[12px] text-muted-foreground truncate pr-2 mt-0.5 font-medium flex items-center gap-1">
+                        {(contact as any).last_message_from_me && (
+                          <span className="text-[10px] text-primary font-bold">Você:</span>
+                        )}
+                        {(contact as any).last_message_text}
+                      </p>
+                    ) : (
+                      <p className="text-[12px] font-medium text-muted-foreground truncate">
+                        {contact.remote_jid.split('@')[0]}
+                      </p>
+                    )}
                   </div>
                 </div>
-                <div className="flex flex-col items-end gap-1.5">
-                  {contact.score !== null && contact.score > 0 && (
-                    <div className="text-[11px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md tabular-nums">
-                      {contact.score} pts
-                    </div>
-                  )}
+                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                  <div className="flex items-center gap-2">
+                    {(contact as any).unread_count ? (
+                      <div className="bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                        {(contact as any).unread_count}
+                      </div>
+                    ) : null}
+                    {contact.score !== null && contact.score > 0 && (
+                      <div className="text-[11px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md tabular-nums">
+                        {contact.score} pts
+                      </div>
+                    )}
+                  </div>
                   {contact.last_message_at && (
-                    <div className="text-[11px] font-medium text-zinc-400 flex items-center gap-1 group-hover:text-zinc-600 transition-colors">
+                    <div className="text-[10px] font-semibold text-zinc-400 flex items-center gap-1 group-hover:text-zinc-600 transition-colors">
                       <Clock className="h-3 w-3" />
                       {formatDistanceToNow(new Date(contact.last_message_at), { addSuffix: true })}
                     </div>
